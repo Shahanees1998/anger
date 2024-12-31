@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Speech from "expo-speech";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons,Octicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const KnowledgeHome = ({ navigation }) => {
@@ -76,22 +76,23 @@ const KnowledgeHome = ({ navigation }) => {
           keyExtractor={(item, index) => index.toString()}
           renderItem={({ item, index }) => (
             <>
-              {/* List Item */}
+              <TouchableOpacity onPress={() => toggleExpand(index)}>
               <View style={styles.listItem}>
                 <View style={styles.itemContent}>
                   <View style={styles.itemNumber}>
                     <Text style={styles.itemNumberText}>{index + 1}</Text>
                   </View>
                   <Text style={styles.itemText}>{item}</Text>
-                  <TouchableOpacity onPress={() => toggleExpand(index)}>
+                  
                     <Ionicons
                       name={expandedIndex === index ? "chevron-up" : "chevron-down"}
                       size={24}
                       color="#FFF"
                     />
-                  </TouchableOpacity>
+                 
                 </View>
               </View>
+              </TouchableOpacity>
               {expandedIndex === index && (
                 <View style={styles.expandedContainer}>
                   <Text style={styles.expandedText}>{item}</Text>
@@ -99,10 +100,10 @@ const KnowledgeHome = ({ navigation }) => {
                     <View style={styles.likeDislike}>
                       <Text style={{color:"#fff"}}>Helpful?</Text>
                       <TouchableOpacity>
-                        <Ionicons name="thumbs-up" size={20} color="#FFF" />
+                      <Octicons name="thumbsup" size={20} color="#F2FAFF" />
                       </TouchableOpacity>
                       <TouchableOpacity>
-                        <Ionicons name="thumbs-down" size={20} color="#FFF" />
+                      <Octicons name="thumbsdown" size={20} color="#F2FAFF" />
                       </TouchableOpacity>
                     </View>
                     <TouchableOpacity
@@ -188,7 +189,7 @@ const styles = StyleSheet.create({
   },
   itemNumberText: {
     color: "#FFF",
-    fontSize: 14,
+    fontSize: 12,
   },
   itemText: {
     flex: 1,
@@ -196,11 +197,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   expandedContainer: {
-    marginTop: 8,
+    marginTop: -15,
     backgroundColor: "#FFFFFF1A",
     borderRadius: 10,
-    padding: 10,
+    paddingHorizontal: 10,
+    paddingVertical:15,
     marginBottom: 10,
+    zIndex:-1
   },
   expandedText: {
     color: "#FFF",

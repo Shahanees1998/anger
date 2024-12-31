@@ -76,13 +76,14 @@ const SOSMedication = ({navigation}) => {
         data={answers}
         keyExtractor={(item, index) => index.toString()}
         renderItem={({ item, index }) => (
+          <TouchableOpacity onPress={() => toggleLike(index)}>
           <View style={styles.listItem}>
             <View style={styles.itemContent}>
               <View style={styles.itemNumber}>
                 <Text style={styles.itemNumberText}>{index + 1}</Text>
               </View>
               <Text style={styles.itemText}>{item}</Text>
-              <TouchableOpacity onPress={() => toggleLike(index)}>
+             
                 <Ionicons
                   name={
                     likedIndexes.has(index) ? "heart" : "heart-outline"
@@ -90,7 +91,7 @@ const SOSMedication = ({navigation}) => {
                   size={24}
                   color="#FFF"
                 />
-              </TouchableOpacity>
+             
               <TouchableOpacity
                 onPress={() => navigation.navigate("Opinion", { item })}
               >
@@ -98,6 +99,7 @@ const SOSMedication = ({navigation}) => {
               </TouchableOpacity>
             </View>
           </View>
+          </TouchableOpacity>
         )}
       />
       <View style={styles.inputContainer}>

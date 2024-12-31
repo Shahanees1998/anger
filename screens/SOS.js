@@ -80,7 +80,7 @@ const SOS = ({ navigation }) => {
                   <Text style={styles.itemNumberText}>{index + 1}</Text>
                 </View>
                 <Text style={styles.itemText}>{item}</Text>
-                <TouchableOpacity onPress={() => toggleLike(index)}>
+                <TouchableOpacity onPress={() => toggleLike(index)} style={{marginRight:10}}>
                   <Ionicons
                     name={
                       likedIndexes.has(index) ? "heart" : "heart-outline"
@@ -99,17 +99,21 @@ const SOS = ({ navigation }) => {
           )}
         />
 
-       
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your text..."
-            placeholderTextColor="#FFFFFF80"
-            value={text}
-            onChangeText={setText}
-          />
-          <TouchableOpacity onPress={addAnswer} style={styles.sendButton}>
-            <Ionicons name="paper-plane" size={24} color="#41729F" />
+        <View style={styles.bottomContainer}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your text..."
+              placeholderTextColor="#FFFFFF80"
+              value={text}
+              onChangeText={setText}
+            />
+            <TouchableOpacity onPress={addAnswer} style={styles.sendButton}>
+              <Ionicons name="paper-plane" size={24} color="#41729F" />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.questionIcon}>
+            <Ionicons name="help" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -163,8 +167,8 @@ const styles = StyleSheet.create({
   listItem: {
     backgroundColor: "#274472",
     borderRadius: 50,
-    padding: 8,
-    marginBottom: 5,
+    padding: 12,
+    marginBottom: 10,
   },
   itemContent: {
     flexDirection: "row",
@@ -190,16 +194,22 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 16,
   },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF1A",
-    padding: 12,
-    borderRadius: 10,
-    position: "absolute",
+  bottomContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
     bottom: 20,
     left: 16,
     right: 16,
+    gap: 8,
+  },
+  inputContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#41729F",
+    padding: 12,
+    borderRadius: 10,
   },
   input: {
     flex: 1,
@@ -210,5 +220,13 @@ const styles = StyleSheet.create({
   sendButton: {
     marginLeft: 10,
     justifyContent: "center",
+  },
+  questionIcon: {
+    backgroundColor: "#274472",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

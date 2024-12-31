@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
   ImageBackground,
+  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -20,148 +21,121 @@ import Feelings from "../assets/feelings.png"
 import Need from "../assets/Need.png";
 import TimeSelector from "../components/TimeSelector";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
+
+const IcebergContent = ({ navigation, selectedTime, onTimeSelect, buttonText, onButtonPress }) => (
+  <View style={styles.screenContainer}>
+    <TimeSelector
+      selectedTime={selectedTime}
+      onTimeSelect={onTimeSelect}
+    />
+    <View style={styles.icebergImagesContainer}>
+      <View style={[styles.imageWrapper, { zIndex: 5 }]}>
+        <Image 
+          source={Top} 
+          style={[styles.topImage]} 
+          resizeMode="contain" 
+        />
+      </View>
+      <View style={[styles.imageWrapper, { zIndex: 4 }]}>
+        <TouchableOpacity onPress={() => navigation.navigate("Thoughts")}>
+          <Image 
+            source={Thoughts} 
+            style={[styles.thoughtsImage]} 
+            resizeMode="contain" 
+          />
+        </TouchableOpacity>
+      </View>
+      <View style={[styles.imageWrapper, { zIndex: 3 }]}>
+        <TouchableOpacity onPress={() => navigation.navigate("Body")}>
+          <Image 
+            source={Body} 
+            style={[styles.bodyImage]} 
+            resizeMode="contain" 
+          />
+        </TouchableOpacity>
+      </View>
+      <View style={[styles.imageWrapper, { zIndex: 2 }]}>
+        <TouchableOpacity onPress={() => navigation.navigate("Feelings")}>
+          <Image 
+            source={Feelings} 
+            style={[styles.feelingsImage]} 
+            resizeMode="contain" 
+          />
+        </TouchableOpacity>
+      </View>
+      <View style={[styles.imageWrapper, { zIndex: 1 }]}>
+        <TouchableOpacity onPress={() => navigation.navigate("Needs")}>
+          <Image 
+            source={Need} 
+            style={[styles.needsImage]} 
+            resizeMode="contain" 
+          />
+        </TouchableOpacity>
+      </View>
+    </View>
+    <View style={styles.buttonContainer}>
+      <ReusableButton
+        text={buttonText}
+        onPress={onButtonPress}
+      />
+    </View>
+  </View>
+);
 
 const Iceberg = ({ navigation }) => {
   const [currentScreenIndex, setCurrentScreenIndex] = useState(0);
   const [selectedTime, setSelectedTime] = useState('Today');
 
+  const imageContainerHeight = height * 0.5;
+
   const screens = [
     {
       key: "Iceberg",
       content: (
-        <View style={styles.screenContainer}>
-          <TimeSelector
-            selectedTime={selectedTime}
-            onTimeSelect={(time) => setSelectedTime(time)}
-          />
-          <View style={{ display: "flex", flexDirection: "column",marginTop:30  }}>
-            <TouchableOpacity>
-              <Image source={Top} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Thoughts")} style={{zIndex:1}}>
-              <Image source={Thoughts} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Body")} style={{zIndex:1}}>
-              <Image source={Body} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Feelings")} style={{zIndex:1}}>
-              <Image source={Feelings} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Needs")} style={{zIndex:1}}>
-              <Image source={Need} />
-            </TouchableOpacity>
-          </View>
-          <View style={{ width: "90%",zIndex:1,marginTop:'10%' }}>
-            <ReusableButton
-              text={"Submitted Answers"}
-              onPress={() => navigation.navigate("SubmittedAnswers", { fromIceberg: true })}
-            />
-          </View>
-        </View>
+        <IcebergContent
+          navigation={navigation}
+          selectedTime={selectedTime}
+          onTimeSelect={(time) => setSelectedTime(time)}
+          buttonText="Submitted Answers"
+          onButtonPress={() => navigation.navigate("SubmittedAnswers", { fromIceberg: true })}
+        />
       ),
     },
     {
       key: "knowledge",
       content: (
-        <View style={styles.screenContainer}>
-          <TimeSelector
-            selectedTime={selectedTime}
-            onTimeSelect={(time) => setSelectedTime(time)}
-          />
-          <View style={{ display: "flex", flexDirection: "column" ,marginTop:30 }}>
-            <TouchableOpacity>
-              <Image source={Top} />
-            </TouchableOpacity>
-          
-            <TouchableOpacity onPress={() => navigation.navigate("Thoughts")} style={{zIndex:1}}>
-              <Image source={Thoughts} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Body")} style={{zIndex:1}}>
-              <Image source={Body} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Feelings")} style={{zIndex:1}}>
-              <Image source={Feelings} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Need")} style={{zIndex:1}}>
-              <Image source={Need} />
-            </TouchableOpacity>
-          </View>
-          <View style={{ width: "90%",zIndex:1,marginTop:'10%'}}>
-            <ReusableButton
-              text={"Knowledge"}
-              onPress={() => navigation.navigate("Knowledge")}
-            />
-          </View>
-        </View>
+        <IcebergContent
+          navigation={navigation}
+          selectedTime={selectedTime}
+          onTimeSelect={(time) => setSelectedTime(time)}
+          buttonText="Knowledge"
+          onButtonPress={() => navigation.navigate("Knowledge")}
+        />
       ),
     },
     {
       key: "SOS",
       content: (
-        <View style={styles.screenContainer}>
-          <TimeSelector
-            selectedTime={selectedTime}
-            onTimeSelect={(time) => setSelectedTime(time)}
-          />
-          <View style={{ display: "flex", flexDirection: "column",marginTop:30  }}>
-            <TouchableOpacity>
-              <Image source={Top} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Thoughts")} style={{zIndex:1}}>
-              <Image source={Thoughts} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Body")} style={{zIndex:1}}>
-              <Image source={Body} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Feelings")} style={{zIndex:1}}>
-              <Image source={Feelings} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Need")} style={{zIndex:1}}>
-              <Image source={Need} />
-            </TouchableOpacity>
-          </View>
-          <View style={{ width: "90%", zIndex:1,marginTop:'10%' }}>
-            <ReusableButton
-              text={"SOS"}
-              onPress={() => navigation.navigate("SOS")}
-            />
-          </View>
-        </View>
+        <IcebergContent
+          navigation={navigation}
+          selectedTime={selectedTime}
+          onTimeSelect={(time) => setSelectedTime(time)}
+          buttonText="SOS"
+          onButtonPress={() => navigation.navigate("SOS")}
+        />
       ),
     },
     {
       key: "Thoughts",
       content: (
-        <View style={styles.screenContainer}>
-          <TimeSelector
-            selectedTime={selectedTime}
-            onTimeSelect={(time) => setSelectedTime(time)}
-          />
-          <View style={{ display: "flex", flexDirection: "column",marginTop:30 }}>
-            <TouchableOpacity>
-              <Image source={Top} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Thoughts")} style={{zIndex:1}}>
-              <Image source={Thoughts} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Body")} style={{zIndex:1}}>
-              <Image source={Body} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Feelings")} style={{zIndex:1}}>
-              <Image source={Feelings} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Feelings")} style={{zIndex:1}}>
-              <Image source={Need} />
-            </TouchableOpacity>
-          </View>
-          <View style={{ width: "90%", zIndex:1,marginTop:'10%' }}>
-            <ReusableButton
-              text={"Thoughts"}
-              onPress={() => navigation.navigate("Thoughts")}
-            />
-          </View>
-        </View>
+        <IcebergContent
+          navigation={navigation}
+          selectedTime={selectedTime}
+          onTimeSelect={(time) => setSelectedTime(time)}
+          buttonText="Thoughts"
+          onButtonPress={() => navigation.navigate("Thoughts")}
+        />
       ),
     },
   ];
@@ -183,9 +157,15 @@ const Iceberg = ({ navigation }) => {
         {screens[currentScreenIndex].content}
 
         <Image
-        source={require("../assets/iceberg_bottom.png")}
-        style={styles.bottomBackgroundImage}
-      />
+          source={require("../assets/iceberg_bottom.png")}
+          style={[
+            styles.bottomBackgroundImage,
+            {
+              height: height * 0.7,
+              width: width,
+            }
+          ]}
+        />
         <TouchableOpacity
           style={[styles.navIcon, styles.leftIcon]}
           onPress={() => navigate(-1)}
@@ -225,10 +205,12 @@ const styles = StyleSheet.create({
   bottomBackgroundImage: {
     position: "absolute",
     bottom: 0,
-    zIndex:0,
-    width: "100%",
-    height: "65%", // Adjust height as needed
-    resizeMode: "cover", // Ensures the image scales properly
+    left: 0,
+    right: 0,
+    resizeMode: "cover",
+    zIndex: 0,
+    height: '60%',
+    top: '32%',
   },
 
   backButton: {
@@ -242,17 +224,15 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    // paddingVertical: 10,
     justifyContent: "center",
     alignItems: "center",
 
   },
   screenContainer: {
     flex: 1,
-    justifyContent: "flex-start",
-    alignItems: "center",
-    width: "100%",
-    paddingTop: 10,
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
   },
   header: {
     flexDirection: "row",
@@ -270,9 +250,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   icebergImage: {
-    width: width * 0.8,
-    height: width * 1,
-    resizeMode: "contain",
+    height: undefined,
+    alignSelf: 'center',
   },
   submitButton: {
     marginTop: 20,
@@ -304,5 +283,51 @@ const styles = StyleSheet.create({
   },
   rightIcon: {
     right: 20,
+  },
+  icebergImagesContainer: {
+    width: '100%',
+    alignItems: 'center',
+    position: 'relative',
+    marginTop: 10,
+  },
+  imageWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: -35,
+  },
+  buttonContainer: {
+    width: '90%',
+    paddingBottom: 20,
+    zIndex: 1,
+    marginTop: 'auto',
+  },
+  topImage: {
+    width: '50%',
+    height: undefined,
+    aspectRatio: 0.95,
+  },
+  thoughtsImage: {
+    width: '60%',
+    height: undefined,
+    aspectRatio: 2.5,
+    marginTop: -15,
+  },
+  bodyImage: {
+    width: '60%',
+    height: undefined,
+    aspectRatio: 2.3,
+    marginTop: -1,
+  },
+  feelingsImage: {
+    width: '60%',
+    height: undefined,
+    aspectRatio: 2.1,
+    marginTop: -5,
+  },
+  needsImage: {
+    width: '65%',
+    height: undefined,
+    aspectRatio: 1.9,
+    marginTop: -5,
   },
 });

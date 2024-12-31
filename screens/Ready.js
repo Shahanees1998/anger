@@ -41,12 +41,12 @@ const Ready = ({ navigation }) => {
         </View>
 
         {/* Continue Button */}
-        <View style={{ width: "90%", position: "absolute", bottom: 30 }}>
+        {/* <View style={{ width: "90%", position: "absolute", bottom: 30 }}>
           <ReusableButton
             text={"Continue"}
             onPress={() => navigation.navigate("SOSMedication")}
           />
-        </View>
+        </View> */}
       </View>
     </LinearGradient>
   );
@@ -66,15 +66,17 @@ export default Ready;
 const styles = StyleSheet.create({
   background: {
     flex: 1,
+    paddingHorizontal:20
   },
   container: {
     flex: 1,
-    justifyContent: "center",
+    // justifyContent: "center",
     alignItems: "center",
   },
   image: {
     width: 200,
     height: 200,
+    marginTop:'15%',
     resizeMode: "contain",
   },
   textBelowImage: {

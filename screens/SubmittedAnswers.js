@@ -9,7 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons, Octicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SubmittedAnswers = ({ navigation, route }) => {
@@ -20,6 +20,8 @@ const SubmittedAnswers = ({ navigation, route }) => {
     "I'm grateful for the support of my friends and family.",
   ]);
   const [expandedIndex, setExpandedIndex] = useState(null);
+  const [likedItems, setLikedItems] = useState([]);
+  const [dislikedItems, setDislikedItems] = useState([]);
 
   // Get the source of navigation from route params
   const showInput = route.params?.fromIceberg || false;
@@ -67,6 +69,14 @@ const SubmittedAnswers = ({ navigation, route }) => {
     setExpandedIndex(index === expandedIndex ? null : index);
   };
 
+  const handleLike = (index, isLiked) => {
+    if (isLiked) {
+      setLikedItems(prev => [...prev, index]);
+    } else {
+      setDislikedItems(prev => [...prev, index]);
+    }
+  };
+
   return (
     <LinearGradient colors={["#5885AF", "#5885AF"]} style={styles.background}>
       <Header onBack={() => navigation.goBack()} title="Submitted Answers" />
@@ -101,16 +111,22 @@ const SubmittedAnswers = ({ navigation, route }) => {
                   <View style={styles.helpfulSection}>
                     <View style={styles.likeDislike}>
                       <Text style={{color:"white"}}>Helpful ?</Text>
-                      <TouchableOpacity>
-                        <Ionicons name="thumbs-up" size={20} color="#FFF" />
+                      <TouchableOpacity onPress={() => handleLike(index, true)}>
+                        <Octicons 
+                          name={likedItems.includes(index) ? "thumbsup-fill" : "thumbsup"} 
+                          size={20} 
+                          color="#FFF" 
+                        />
                       </TouchableOpacity>
-                      <TouchableOpacity>
-                        <Ionicons name="thumbs-down" size={20} color="#FFF" />
+                      <TouchableOpacity onPress={() => handleLike(index, false)}>
+                        <Octicons 
+                          name={dislikedItems.includes(index) ? "thumbsdown-fill" : "thumbsdown"} 
+                          size={20} 
+                          color="#FFF" 
+                        />
                       </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                      style={styles.speakerIcon}
-                    >
+                    <TouchableOpacity style={styles.speakerIcon}>
                       <Ionicons name="volume-high" size={24} color="#41729F" />
                     </TouchableOpacity>
                   </View>

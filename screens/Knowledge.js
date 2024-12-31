@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Speech from "expo-speech";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons,Octicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Knowledge = ({ navigation }) => {
@@ -87,12 +87,12 @@ const Knowledge = ({ navigation }) => {
                   <Text style={styles.expandedText}>{item}</Text>
                   <View style={styles.helpfulSection}>
                     <View style={styles.likeDislike}>
-                      <Text style={{color:"white"}}>Helpful</Text>
+                      <Text style={{color:"#F2FAFF"}}>Helpful?</Text>
                       <TouchableOpacity>
-                        <Ionicons name="thumbs-up" size={20} color="#FFF" />
+                        <Octicons name="thumbsup" size={20} color="#F2FAFF" />
                       </TouchableOpacity>
                       <TouchableOpacity>
-                        <Ionicons name="thumbs-down" size={20} color="#FFF" />
+                        <Octicons name="thumbsdown" size={20} color="#F2FAFF" />
                       </TouchableOpacity>
                     </View>
                     <TouchableOpacity
@@ -187,11 +187,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   expandedContainer: {
-    marginTop: 8,
+    marginTop: -15,
     backgroundColor: "#FFFFFF1A",
     borderRadius: 10,
-    padding: 10,
-    marginBottom: 10
+    paddingHorizontal: 10,
+    paddingVertical:15,
+    marginBottom: 10,
+    zIndex:-1
   },
   expandedText: {
     color: "#FFF",

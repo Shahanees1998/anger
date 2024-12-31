@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Speech from "expo-speech";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Octicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Body = ({ navigation }) => {
@@ -33,9 +33,9 @@ const Body = ({ navigation }) => {
 
   const addBody = async () => {
     if (text.trim()) {
-      const newBody = [...body, { 
-        text: text.trim(), 
-        subDetails: [] 
+      const newBody = [...body, {
+        text: text.trim(),
+        subDetails: []
       }];
       setBody(newBody);
       setText("");
@@ -87,7 +87,7 @@ const Body = ({ navigation }) => {
             <Text style={styles.subDetailText}>{detail}</Text>
           </View>
         ))}
-        
+
         {/* Input for new sub-detail */}
         <View style={styles.subDetailInputContainer}>
           <TextInput
@@ -97,8 +97,8 @@ const Body = ({ navigation }) => {
             value={localBodyText}
             onChangeText={setLocalBodyText}
           />
-          <TouchableOpacity 
-            onPress={handleAddBodyDetail} 
+          <TouchableOpacity
+            onPress={handleAddBodyDetail}
             style={styles.subDetailSendButton}
           >
             <Ionicons name="paper-plane-outline" size={24} color="#274472" />
@@ -117,39 +117,44 @@ const Body = ({ navigation }) => {
           keyExtractor={(item, index) => index.toString()}
           renderItem={({ item, index }) => (
             <>
-              <View style={styles.listItem}>
-                <View style={styles.itemContent}>
-                  <View style={styles.itemNumber}>
-                    <Text style={styles.itemNumberText}>{index + 1}</Text>
-                  </View>
-                  <Text style={styles.itemText}>{item.text}</Text>
-                  <TouchableOpacity onPress={() => toggleExpand(index)}>
+              <TouchableOpacity onPress={() => toggleExpand(index)}>
+                <View style={styles.listItem}>
+                  <View style={styles.itemContent}>
+                    <View style={styles.itemNumber}>
+                      <Text style={styles.itemNumberText}>{index + 1}</Text>
+                    </View>
+                    <Text style={styles.itemText}>{item.text}</Text>
+
                     <Ionicons
                       name={expandedIndex === index ? "chevron-up" : "chevron-down"}
                       size={24}
                       color="#FFF"
                     />
-                  </TouchableOpacity>
-                </View>
-              </View>
 
+                  </View>
+                </View>
+              </TouchableOpacity>
               {expandedIndex === index && (
                 <ExpandedForm item={item} index={index} />
               )}
             </>
           )}
         />
-
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter body sensation..."
-            placeholderTextColor="#fff"
-            value={text}
-            onChangeText={setText}
-          />
-          <TouchableOpacity onPress={addBody} style={styles.sendButton}>
-            <Ionicons name="paper-plane-outline" size={24} color="#fff" />
+        <View style={styles.bottomContainer}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your text..."
+              placeholderTextColor="#FFFFFF"
+              value={text}
+              onChangeText={setText}
+            />
+            <TouchableOpacity onPress={addBody} style={styles.sendButton}>
+              <Ionicons name="paper-plane-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.questionIcon}>
+            <Ionicons name="help" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -203,7 +208,7 @@ const styles = StyleSheet.create({
   listItem: {
     backgroundColor: "#274472",
     borderRadius: 50,
-    padding: 8,
+    padding: 10,
     marginBottom: 5,
   },
   itemContent: {
@@ -264,16 +269,30 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     justifyContent: 'center',
   },
+  bottomContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    gap: 8,
+  },
   inputContainer: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#41729F",
     padding: 12,
     borderRadius: 10,
-    position: "absolute",
-    bottom: 20,
-    left: 16,
-    right: 16,
+  },
+  questionIcon: {
+    backgroundColor: "#274472",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
   input: {
     flex: 1,

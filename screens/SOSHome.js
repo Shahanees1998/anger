@@ -92,13 +92,14 @@ const SOSHome = ({ navigation }) => {
           data={answers}
           keyExtractor={(item, index) => index.toString()}
           renderItem={({ item, index }) => (
+           
             <View style={styles.listItem}>
               <View style={styles.itemContent}>
                 <View style={styles.itemNumber}>
                   <Text style={styles.itemNumberText}>{index + 1}</Text>
                 </View>
                 <Text style={styles.itemText}>{item}</Text>
-                <TouchableOpacity onPress={() => toggleLike(index)}>
+                <TouchableOpacity onPress={() => toggleLike(index)} style={{marginRight:10}}>
                   <Ionicons
                     name={
                       likedIndexes.has(index) ? "heart" : "heart-outline"
@@ -106,12 +107,13 @@ const SOSHome = ({ navigation }) => {
                     size={24}
                     color="#FFF"
                   />
-                </TouchableOpacity>
+                  </TouchableOpacity>
                 <TouchableOpacity onPress={() => handlePressItem(item)}>
                   <Ionicons name="chevron-down" size={24} color="#FFF" />
                 </TouchableOpacity>
               </View>
             </View>
+          
           )}
         />
       </View>
@@ -165,8 +167,8 @@ const styles = StyleSheet.create({
   listItem: {
     backgroundColor: "#274472",
     borderRadius: 50,
-    padding: 8,
-    marginBottom: 5,
+    padding: 12,
+    marginBottom: 10,
   },
   itemContent: {
     flexDirection: "row",

@@ -140,7 +140,7 @@ const Feelings = ({ navigation }) => {
             </>
           )}
         />
-<View style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent:"center"}}>
+<View style={styles.bottomContainer}>
   <View style={styles.inputContainer}>
     <TextInput
       style={styles.input}
@@ -295,5 +295,30 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     
     justifyContent: "center",
+  },
+  bottomContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    gap: 8,
+  },
+  inputContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#41729F",
+    padding: 12,
+    borderRadius: 10,
+  },
+  questionIcon: {
+    backgroundColor: "#274472",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

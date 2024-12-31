@@ -8,7 +8,7 @@ import {
   FlatList,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons, Octicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage"; // Import AsyncStorage
 
 const Thoughts = ({ navigation }) => {
@@ -62,22 +62,23 @@ const Thoughts = ({ navigation }) => {
           keyExtractor={(item, index) => index.toString()}
           renderItem={({ item, index }) => (
             <>
+            <TouchableOpacity onPress={() => toggleExpand(index)}>
               <View style={styles.listItem}>
                 <View style={styles.itemContent}>
                   <View style={styles.itemNumber}>
                     <Text style={styles.itemNumberText}>{index + 1}</Text>
                   </View>
                   <Text style={styles.itemText}>{item.text}</Text>
-                  <TouchableOpacity onPress={() => toggleExpand(index)}>
+                  
                     <Ionicons
                       name={expandedIndex === index ? "chevron-forward" : "chevron-down"}
                       size={24}
                       color="#FFF"
                     />
-                  </TouchableOpacity>
+                  
                 </View>
               </View>
-
+              </TouchableOpacity>
               {expandedIndex === index && (
                 <ExpandedForm 
                   thought={item} 
@@ -92,16 +93,21 @@ const Thoughts = ({ navigation }) => {
         />
 
         {/* Input Field */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your text..."
-            placeholderTextColor="#FFFFFF"
-            value={text}
-            onChangeText={setText}
-          />
-          <TouchableOpacity onPress={addThought} style={styles.sendButton}>
-            <Ionicons name="paper-plane-outline" size={24} color="#fff" />
+        <View style={styles.bottomContainer}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your text..."
+              placeholderTextColor="#FFFFFF"
+              value={text}
+              onChangeText={setText}
+            />
+            <TouchableOpacity onPress={addThought} style={styles.sendButton}>
+              <Ionicons name="paper-plane-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.questionIcon}>
+            <Ionicons name="help" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -274,16 +280,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
+  bottomContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    gap: 8,
+  },
   inputContainer: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#41729F",
     padding: 12,
     borderRadius: 10,
-    position: "absolute",
-    bottom: 20,
-    left: 16,
-    right: 16,
   },
   input: {
     flex: 1,
@@ -295,5 +307,13 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     color: "#fff",
     justifyContent: "center", // Centers the icon vertically
+  },
+  questionIcon: {
+    backgroundColor: "#274472",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
