@@ -6,45 +6,51 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons, Octicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // Import AsyncStorage
+import { auth } from "../firebase";
+import DataService from '../services/DataService';
 
 const Thoughts = ({ navigation }) => {
   const [text, setText] = useState("");
-  const [thoughts, setThoughts] = useState([]); // Will store {text: string, subThoughts: string[]}
+  const [thoughts, setThoughts] = useState([]);
   const [expandedIndex, setExpandedIndex] = useState(null);
   const [subThoughtText, setSubThoughtText] = useState("");
 
   useEffect(() => {
-    const loadThoughts = async () => {
-      try {
-        const storedThoughts = await AsyncStorage.getItem("thoughts");
-        if (storedThoughts) {
-          setThoughts(JSON.parse(storedThoughts));
-        }
-      } catch (error) {
-        console.error("Failed to load thoughts from AsyncStorage", error);
-      }
-    };
-    loadThoughts();
+    fetchThoughts();
   }, []);
 
-  const addThought = () => {
-    if (text.trim()) {
-      const newThoughts = [...thoughts, { text: text.trim(), subThoughts: [] }];
-      setThoughts(newThoughts);
-      setText("");
-      saveThoughts(newThoughts);
+  const fetchThoughts = async () => {
+    try {
+      const thoughtsList = await DataService.getCollection(`users/${auth.currentUser.uid}/thoughts`);
+      setThoughts(thoughtsList);
+    } catch (error) {
+      console.error("Error fetching thoughts:", error);
     }
   };
 
-  const saveThoughts = async (thoughtsToSave) => {
+  const addThought = async (thoughtText) => {
+    if (!thoughtText.trim()) return;
+    
     try {
-      await AsyncStorage.setItem("thoughts", JSON.stringify(thoughtsToSave));
+      const thoughtData = {
+        text: thoughtText,
+        subThoughts: []
+      };
+
+      await DataService.addDocument(
+        `users/${auth.currentUser.uid}/thoughts`,
+        thoughtData
+      );
+
+      setText('');
+      fetchThoughts();
     } catch (error) {
-      console.error("Failed to save thoughts to AsyncStorage", error);
+      console.error("Error adding thought:", error);
+      Alert.alert("Error", "Failed to save thought");
     }
   };
 

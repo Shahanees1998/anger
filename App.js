@@ -2,7 +2,10 @@ import React, { useState, useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as Font from "expo-font";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator } from "react-native";
+import { auth, db } from './firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import SplashScreen from "./screens/SplashScreen";
 import SignUpScreen from "./screens/SignUpScreen";
 import SignInScreen from "./screens/SignInScreen";
@@ -23,36 +26,47 @@ import Opinion from "./screens/Opinion";
 import Body from "./screens/Body";
 import Feelings from "./screens/Feelings";
 import Needs from "./screens/Needs"
+import AdminSignIn from './screens/AdminSignIn';
+import AdminDashboard from './screens/AdminDashboard';
+import setupAdmin from './scripts/setupAdmin';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-  const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const loadFont = async () => {
+    const initialize = async () => {
       try {
+        console.log('Starting initialization...');
+        
+        // Load fonts
         await Font.loadAsync({
           "JotiOne-Regular": require("./assets/fonts/JotiOne-Regular.ttf"),
         });
-        setFontsLoaded(true);
+        console.log('Fonts loaded');
+
+        // Setup admin account
+        console.log('Setting up admin...');
+        await setupAdmin().catch(error => {
+          console.error('Admin setup error:', error);
+        });
+        console.log('Admin setup complete');
+
+        setIsReady(true);
       } catch (error) {
-        console.error("Error loading font:", error);
+        console.error('Initialization error:', error);
+        setIsReady(true);
       }
     };
 
-    loadFont();
+    initialize();
   }, []);
 
-  if (!fontsLoaded) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#000" />
-      </View>
-    );
-  }
-  return (
  
+
+  return (
+    
       <Stack.Navigator initialRouteName="Splash">
         <Stack.Screen
           name="Splash"
@@ -154,24 +168,9 @@ export default function App() {
           component={Needs}
           options={{ headerShown: false }}
         />
+        <Stack.Screen name="AdminSignIn" component={AdminSignIn} options={{ headerShown: false }} />
+        <Stack.Screen name="AdminDashboard" component={AdminDashboard} options={{ headerShown: false }} />
       </Stack.Navigator>
 
   );
 }
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  text: {
-    fontFamily: "JotiOne-Regular",
-    fontSize: 24,
-    color: "#333",
-  },
-});

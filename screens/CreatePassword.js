@@ -1,26 +1,31 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TouchableOpacity, Text } from "react-native";
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
 import Heading from "../components/Heading";
 import TextBlock from "../components/TextBlock";
-import ReusableButton from "../components/ReusableButton";
 import InputField from "../components/InputField";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import ReusableButton from "../components/ReusableButton";
 import CustomAlert from "../components/CustomAlert";
-import Verfication from "../assets/verification.png"
+import InformationIcon from "../assets/information_icon.png";
 
 const CreatePassword = ({ navigation, route }) => {
-  const { email } = route.params; 
+  const email = route.params?.email || '';
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertConfig, setAlertConfig] = useState({});
 
   const handleContinue = async () => {
+    // Validation checks
     if (!password || !confirmPassword) {
       setAlertConfig({
-        icon: "⚠️",
+        icon: InformationIcon,
         title: "Error",
         message: "Both password fields are required.",
         onContinue: () => setAlertVisible(false),
@@ -31,7 +36,7 @@ const CreatePassword = ({ navigation, route }) => {
 
     if (password !== confirmPassword) {
       setAlertConfig({
-        icon: "⚠️",
+        icon: InformationIcon,
         title: "Error",
         message: "Passwords do not match.",
         onContinue: () => setAlertVisible(false),
@@ -40,29 +45,71 @@ const CreatePassword = ({ navigation, route }) => {
       return;
     }
 
+    setLoading(true);
     try {
-      const signupData = { email, password };
-      await AsyncStorage.setItem("userData", JSON.stringify(signupData));
+      // Get stored user data
+      const tempUserData = await AsyncStorage.getItem('tempUserData');
+      if (!tempUserData) {
+        throw new Error('No user data found');
+      }
+      const userData = JSON.parse(tempUserData);
+      console.log('Creating user with data:', userData);
+
+      // Create authentication account
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        userData.email,
+        password
+      );
+      console.log('Auth account created:', userCredential.user.uid);
+      navigation.replace("HomeScreen");
+      // Create user document
+      const userDocRef = doc(db, 'users', userCredential.user.uid);
+      const userDoc = {
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        createdAt: new Date().toISOString(),
+        lastActive: new Date().toISOString(),
+        isAdmin: false,
+        userType: 'regular',
+        profile: {
+          phone: '',
+          gender: '',
+          joinDate: new Date().toISOString()
+        }
+      };
+
+      await setDoc(userDocRef, userDoc);
+      console.log('User document created in Firestore');
+
+      // Clear temporary storage
+      await AsyncStorage.removeItem('tempUserData');
+
+      // Navigate to home screen
+      
+
+    } catch (error) {
+      console.error('Error creating user:', error);
+      let errorMessage = "Failed to create account";
+      
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "Email already in use";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "Invalid email address";
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = "Password is too weak";
+      }
 
       setAlertConfig({
-        icon: Verfication,
-        title: "Password Creation Successful",
-        message: "Your new password has been successfully created.",
-        onContinue: () => {
-          setAlertVisible(false);
-          navigation.navigate("HomeScreen"); // Navigate to the Home screen
-        },
-      });
-      setAlertVisible(true);
-    } catch (error) {
-      console.error("Error saving password:", error);
-      setAlertConfig({
-        icon: "⚠️",
+        icon: InformationIcon,
         title: "Error",
-        message: "Failed to save password. Please try again.",
+        message: errorMessage,
         onContinue: () => setAlertVisible(false),
       });
       setAlertVisible(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -97,7 +144,11 @@ const CreatePassword = ({ navigation, route }) => {
           value={confirmPassword}
           onChangeText={setConfirmPassword}
         />
-        <ReusableButton text="Continue" onPress={handleContinue} />
+        {loading ? (
+          <ActivityIndicator size="large" color="#fff" style={styles.loader} />
+        ) : (
+          <ReusableButton text="Continue" onPress={handleContinue} />
+        )}
         <View style={{ flex: 1 }}></View>
 
         {/* Custom Alert */}
@@ -129,6 +180,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 10,
+  },
+  loader: {
+    marginTop: 20,
   },
 });
 

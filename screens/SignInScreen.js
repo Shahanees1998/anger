@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,10 +20,15 @@ import ReusableButton from "../components/ReusableButton";
 import InputField from "../components/InputField";
 import Google from "../assets/google.png";
 import Facebook from "../assets/facebook.png";
+import { signInWithEmailAndPassword, signInWithPopup, onAuthStateChanged } from "firebase/auth";
+import { auth, db, googleProvider, facebookProvider } from "../firebase";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import DataService from '../services/DataService';
 
 const SignInScreen = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -30,24 +36,102 @@ const SignInScreen = ({ navigation }) => {
       return;
     }
 
+    setLoading(true);
     try {
-      // Retrieve stored user data
-      const storedUser = await AsyncStorage.getItem("userData");
-      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+      // Authenticate
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      
+      // Save auth state for offline access
+      await DataService.saveAuthState(userCredential.user);
 
-      if (parsedUser && parsedUser.email === email && parsedUser.password === password) {
-        // Successful login
-        await AsyncStorage.setItem("currentUserEmail", email); // Store the logged-in user's email
-        Alert.alert("Success", "Login successful!");
-        navigation.navigate("HomeScreen");
-      } else {
-        Alert.alert("Error", "Invalid email or password.");
-      }
+      // Try to get user data in background
+      DataService.getUserData(userCredential.user.uid).then(userData => {
+        if (userData) {
+          console.log('User data loaded');
+        }
+      }).catch(error => {
+        console.error('Background data load failed:', error);
+      });
+
+      // Navigate immediately
+      navigation.replace("HomeScreen");
+
     } catch (error) {
-      Alert.alert("Error", "An error occurred while logging in.");
+      console.error('Login error:', error.code, error.message);
+      let errorMessage = "Invalid email or password";
+      
+      // Try offline login if network error
+      if (error.code === 'auth/network-request-failed') {
+        try {
+          const savedAuth = await DataService.getAuthState();
+          if (savedAuth && savedAuth.email === email.trim()) {
+            navigation.replace("HomeScreen");
+            return;
+          }
+          errorMessage = "Network error and no saved login found";
+        } catch (offlineError) {
+          console.error('Offline login failed:', offlineError);
+          errorMessage = "Network error. Please check your connection";
+        }
+      }
+      
+      switch (error.code) {
+        case 'auth/invalid-email':
+          errorMessage = "Invalid email format";
+          break;
+        case 'auth/user-not-found':
+          errorMessage = "No account found with this email";
+          break;
+        case 'auth/wrong-password':
+          errorMessage = "Incorrect password";
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = "Too many attempts. Please try again later";
+          break;
+        default:
+          errorMessage = "Failed to sign in. Please try again";
+      }
+      
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      
+      // Check if user document exists
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      console.log(userDoc);
+      if (!userDoc.exists()) {
+        // Create user document for Google sign-in
+        await setDoc(doc(db, 'users', user.uid), {
+          firstName: user.displayName?.split(' ')[0] || '',
+          lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+          email: user.email,
+          createdAt: serverTimestamp(),
+          disabled: false
+        });
+      }
+
+      navigation.navigate("HomeScreen");
+    } catch (error) {
+      Alert.alert("Error", "Failed to sign in with Google");
+    }
+  };
+
+  const handleFacebookSignIn = async () => {
+    try {
+      const result = await signInWithPopup(auth, facebookProvider);
+      // Similar to Google sign-in handling
+      navigation.navigate("HomeScreen");
+    } catch (error) {
+      Alert.alert("Error", "Failed to sign in with Facebook");
+    }
+  };
 
   return (
     <LinearGradient
@@ -93,7 +177,11 @@ const SignInScreen = ({ navigation }) => {
               <Text style={styles.forgotPassword}>Forgot Password?</Text>
             </TouchableOpacity>
 
-            <ReusableButton text="Log In" onPress={handleLogin} />
+            {loading ? (
+              <ActivityIndicator size="large" color="#fff" style={styles.loader} />
+            ) : (
+              <ReusableButton text="Sign In" onPress={handleLogin} />
+            )}
 
             <View style={styles.dividerContainer}>
               <View style={styles.line} />
@@ -103,14 +191,14 @@ const SignInScreen = ({ navigation }) => {
 
             <TouchableOpacity
               style={styles.secondaryButton}
-              onPress={() => console.log("Continue with Google Pressed")}
+              onPress={handleGoogleSignIn}
             >
               <Image source={Google} style={styles.googleIcon} />
               <Text style={styles.secondaryButtonText}>Continue with Google</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.secondaryButton}
-              onPress={() => console.log("Continue with Facebook Pressed")}
+              onPress={handleFacebookSignIn}
             >
               <Image source={Facebook} style={styles.googleIcon} />
               <Text style={styles.secondaryButtonText}>Continue with Facebook</Text>
@@ -124,6 +212,12 @@ const SignInScreen = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
 
+            <TouchableOpacity 
+              style={styles.adminLink}
+              onPress={() => navigation.navigate("AdminSignIn")}
+            >
+              <Text style={styles.adminText}>Admin Login</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -203,6 +297,19 @@ const styles = StyleSheet.create({
   signupLink: {
     color: "#274472",
     fontWeight: "600",
+  },
+  adminLink: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  adminText: {
+    color: '#274472',
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  loader: {
+    marginTop: 20,
   },
 });
 

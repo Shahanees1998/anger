@@ -10,6 +10,9 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "../firebase";
+import { Alert } from "react-native";
 
 const Feelings = ({ navigation }) => {
   const [knowledge, setKnowledge] = useState([]);
@@ -97,6 +100,19 @@ const Feelings = ({ navigation }) => {
       <Text style={styles.cardText}>{item.text}</Text>
     </TouchableOpacity>
   );
+
+  const addFeeling = async (feelingData) => {
+    try {
+      const feelingsRef = collection(db, `users/${auth.currentUser.uid}/feelings`);
+      await addDoc(feelingsRef, {
+        ...feelingData,
+        createdAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Error adding feeling:", error);
+      Alert.alert("Error", "Failed to save feeling");
+    }
+  };
 
   return (
     <LinearGradient colors={["#5885AF", "#5885AF"]} style={styles.background}>

@@ -9,6 +9,9 @@ import InputField from "../components/InputField";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import CustomAlert from "../components/CustomAlert";
 import InformationIcon from "../assets/information_icon.png"
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
 
 const SignUpScreen = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -25,14 +28,11 @@ const SignUpScreen = ({ navigation }) => {
   };
 
   const handleNext = async () => {
-    console.log("Form Data at submission:", formData); // Debug log
-    const { firstName, lastName, email } = formData;
-
-    if (!firstName || !lastName || !email) {
+    if (!formData.email || !formData.firstName || !formData.lastName) {
       setAlertConfig({
         icon: InformationIcon,
         title: "Error",
-        message: "All fields are required.",
+        message: "Please fill in all fields",
         onContinue: () => setAlertVisible(false),
       });
       setAlertVisible(true);
@@ -40,29 +40,19 @@ const SignUpScreen = ({ navigation }) => {
     }
 
     try {
-      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit OTP
-      console.log("Generated OTP:", generatedOtp); // Debug log
-      await AsyncStorage.setItem(
-        "signupData",
-        JSON.stringify({ ...formData, otp: generatedOtp })
-      );
-
+      console.log('Saving signup data:', formData);
+      await AsyncStorage.setItem('tempUserData', JSON.stringify({
+        email: formData.email.trim(),
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim()
+      }));
+      navigation.navigate('CreatePassword', { email: formData.email });
+    } catch (error) {
+      console.error('Error in signup:', error);
       setAlertConfig({
         icon: InformationIcon,
-        title: "OTP Verification",
-        message: `Your OTP code has been sent to your email. Your Otp code is ${generatedOtp}.`,
-        onContinue: () => {
-          setAlertVisible(false);
-          navigation.navigate("OTPVerification", { email });
-        },
-      });
-      setAlertVisible(true);
-    } catch (error) {
-      console.error("Error saving data:", error);
-      setAlertConfig({
-        icon: "⚠️",
         title: "Error",
-        message: "Failed to save data. Please try again.",
+        message: "Something went wrong. Please try again.",
         onContinue: () => setAlertVisible(false),
       });
       setAlertVisible(true);

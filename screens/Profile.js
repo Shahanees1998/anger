@@ -7,6 +7,7 @@ import {
   ScrollView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,155 +15,175 @@ import ReusableButton from "../components/ReusableButton";
 import InputField from "../components/InputField";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
+import CustomAlert from "../components/CustomAlert";
+import InformationIcon from "../assets/information_icon.png";
+import { onAuthStateChanged } from "firebase/auth";
 
 const Profile = ({ navigation }) => {
   const [userData, setUserData] = useState({
     firstName: "",
     lastName: "",
     email: "",
+    phone: "",
+    gender: "Select",
+    dob: new Date(),
   });
-  const [phone, setPhone] = useState("");
-  const [gender, setGender] = useState("Select");
-  const [dob, setDob] = useState(new Date());
-  const [password, setPassword] = useState(""); // To hold password
+  const [loading, setLoading] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({});
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const savedData = await AsyncStorage.getItem("signupData");
-        const savedPassword = await AsyncStorage.getItem("password"); // Retrieve password
-        if (savedData) {
-          const parsedData = JSON.parse(savedData);
-          setUserData({
-            firstName: parsedData.firstName || "",
-            lastName: parsedData.lastName || "",
-            email: parsedData.email || "",
-          });
-        }
-        if (savedPassword) {
-          setPassword(savedPassword); // Set the password
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        navigation.replace("SignIn");
+      } else {
+        fetchUserData(user.uid);
       }
-    };
+    });
 
-    fetchUserData();
+    return unsubscribe;
   }, []);
 
-  const handleDateChange = (event, selectedDate) => {
-    const currentDate = selectedDate || dob;
-    setShowDatePicker(Platform.OS === "ios");
-    setDob(currentDate);
-  };
-
-  const handleUpdate = async () => {
-    const updatedData = {
-      ...userData,
-      phone,
-      gender,
-      dob: dob.toLocaleDateString(),
-    };
+  const fetchUserData = async (userId) => {
     try {
-      await AsyncStorage.setItem("profileData", JSON.stringify(updatedData));
-      Alert.alert("Success", "Profile updated successfully!");
-      navigation.navigate("HomeScreen");
+      setLoading(true);
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setUserData({
+          firstName: data.firstName || "",
+          lastName: data.lastName || "",
+          email: data.email || auth.currentUser?.email || "",
+          phone: data.phone || "",
+          gender: data.gender || "Select",
+          dob: data.dob ? new Date(data.dob) : new Date(),
+        });
+      }
     } catch (error) {
-      console.error("Error updating profile:", error);
-      Alert.alert("Error", "Failed to update profile. Please try again.");
+      console.error("Error fetching user data:", error);
+      Alert.alert("Error", "Failed to load profile data");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleChangePassword = () => {
-    navigation.navigate("ChangePassword"); // Navigate to Change Password screen
+  const handleUpdate = async () => {
+    try {
+      setLoading(true);
+      const userId = auth.currentUser?.uid;
+      if (!userId) throw new Error('No authenticated user');
+
+      const userRef = doc(db, 'users', userId);
+      const updateData = {
+        ...userData,
+        updatedAt: serverTimestamp()
+      };
+
+      await updateDoc(userRef, updateData);
+      Alert.alert("Success", "Profile updated successfully!");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      Alert.alert("Error", "Failed to update profile");
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setUserData(prev => ({ ...prev, dob: selectedDate }));
+    }
+  };
+
+  if (loading) {
+    return (
+      <LinearGradient colors={["#5885AF", "#5885AF"]} style={styles.background}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#fff" />
+        </View>
+      </LinearGradient>
+    );
+  }
+
   return (
-    <LinearGradient
-    colors={["#5885AF", "#5885AF"]}
-      style={styles.background}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-    >
+    <LinearGradient colors={["#5885AF", "#5885AF"]} style={styles.background}>
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.container}>
           <Header onBack={() => navigation.goBack()} title="Profile" />
 
-          {/* Input Fields */}
           <InputField
             label="First Name"
-            placeholder="John"
             value={userData.firstName}
-            editable={false}
+            onChangeText={(text) => setUserData(prev => ({ ...prev, firstName: text }))}
+            placeholder="Enter your first name"
           />
+
           <InputField
             label="Last Name"
-            placeholder="Doe"
             value={userData.lastName}
-            editable={false}
+            onChangeText={(text) => setUserData(prev => ({ ...prev, lastName: text }))}
+            placeholder="Enter your last name"
           />
+
           <InputField
             label="Email"
-            placeholder="johndoe@gmail.com"
             value={userData.email}
             editable={false}
+            placeholder="Your email address"
           />
+
           <InputField
             label="Phone"
-            placeholder="+1 00 000 000 0000"
-            value={phone}
-            onChangeText={(text) => setPhone(text)}
+            value={userData.phone}
+            onChangeText={(text) => setUserData(prev => ({ ...prev, phone: text }))}
+            placeholder="Enter your phone number"
+            keyboardType="phone-pad"
           />
 
-          {/* Password */}
-      
-
-          {/* D.O.B Picker */}
-          <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-            <InputField
-              label="D.O.B"
-              placeholder={dob.toLocaleDateString()}
-              editable={false}
-            />
-          </TouchableOpacity>
           <View style={styles.pickerContainer}>
             <Text style={styles.pickerLabel}>Gender</Text>
             <Picker
-              selectedValue={gender}
+              selectedValue={userData.gender}
               style={styles.picker}
-              onValueChange={(itemValue) => setGender(itemValue)}
+              onValueChange={(value) => setUserData(prev => ({ ...prev, gender: value }))}
             >
-              <Picker.Item label="Select" value="Select" />
-              <Picker.Item label="Male" value="Male" />
-              <Picker.Item label="Female" value="Female" />
-              <Picker.Item label="Other" value="Other" />
+              <Picker.Item label="Select Gender" value="Select" />
+              <Picker.Item label="Male" value="male" />
+              <Picker.Item label="Female" value="female" />
+              <Picker.Item label="Other" value="other" />
             </Picker>
           </View>
-          <InputField
-            label="Password"
-            placeholder="Enter your password"
-            secureTextEntry={true}
-            value={password}
-            editable={false} 
-          />
 
-          <TouchableOpacity onPress={handleChangePassword}>
-            <Text style={styles.changePasswordText}>Change Password</Text>
+          <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+            <InputField
+              label="Date of Birth"
+              value={userData.dob.toLocaleDateString()}
+              editable={false}
+            />
           </TouchableOpacity>
-          <ReusableButton text="Update Profile" onPress={handleUpdate} />
 
-          {/* Date Picker */}
           {showDatePicker && (
             <DateTimePicker
-              testID="dateTimePicker"
-              value={dob}
+              value={userData.dob}
               mode="date"
               display="default"
               onChange={handleDateChange}
             />
           )}
+
+          <ReusableButton text="Update Profile" onPress={handleUpdate} />
+
+          <CustomAlert
+            visible={alertVisible}
+            onClose={() => setAlertVisible(false)}
+            {...alertConfig}
+          />
         </View>
       </ScrollView>
     </LinearGradient>
@@ -225,6 +246,11 @@ const styles = StyleSheet.create({
     
     textAlign: "right",
     marginVertical: 10,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 

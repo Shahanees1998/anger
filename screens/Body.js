@@ -11,6 +11,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Speech from "expo-speech";
 import { Ionicons, Octicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "../firebase";
+import { Alert } from "react-native";
 
 const Body = ({ navigation }) => {
   const [text, setText] = useState("");
@@ -106,6 +109,19 @@ const Body = ({ navigation }) => {
         </View>
       </View>
     );
+  };
+
+  const addBodyResponse = async (bodyData) => {
+    try {
+      const bodyRef = collection(db, `users/${auth.currentUser.uid}/body`);
+      await addDoc(bodyRef, {
+        ...bodyData,
+        createdAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Error adding body response:", error);
+      Alert.alert("Error", "Failed to save response");
+    }
   };
 
   return (
