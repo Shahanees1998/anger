@@ -59,118 +59,36 @@ export default function App() {
   }, []);
 
   return (
-    <Stack.Navigator initialRouteName="Splash">
-      <Stack.Screen
-        name="Splash"
-        component={SplashScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="SignUp"
-        component={SignUpScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="SignIn"
-        component={SignInScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="OTPVerification"
-        component={OTPVerification}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="CreatePassword"
-        component={CreatePassword}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="ForgetPassword"
-        component={ForgetPassword}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="RecoverPassword"
-        component={RecoverPassword}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="HomeScreen"
-        component={HomeScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Profile"
-        component={Profile}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="ChangePassword"
-        component={ChangePassword}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="SubmittedAnswers"
-        component={SubmittedAnswers}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Knowledge"
-        component={Knowledge}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="SOS"
-        component={SOS}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Thoughts"
-        component={Thoughts}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Ready"
-        component={Ready}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="SOSMedication"
-        component={SOSMedication}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Opinion"
-        component={Opinion}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Body"
-        component={Body}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Feelings"
-        component={Feelings}
-        options={{ headerShown: false }}
-      />
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: "slide_from_right",
+      }}
+      initialRouteName="Splash"
+    >
+      <Stack.Screen name="Splash" component={SplashScreen} />
+      <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen name="SignIn" component={SignInScreen} />
+      <Stack.Screen name="OTPVerification" component={OTPVerification} />
+      <Stack.Screen name="CreatePassword" component={CreatePassword} />
+      <Stack.Screen name="ForgetPassword" component={ForgetPassword} />
+      <Stack.Screen name="RecoverPassword" component={RecoverPassword} />
+      <Stack.Screen name="HomeScreen" component={HomeScreen} />
+      <Stack.Screen name="Profile" component={Profile} />
+      <Stack.Screen name="ChangePassword" component={ChangePassword} />
+      <Stack.Screen name="SubmittedAnswers" component={SubmittedAnswers} />
+      <Stack.Screen name="Knowledge" component={Knowledge} />
+      <Stack.Screen name="SOS" component={SOS} />
+      <Stack.Screen name="Thoughts" component={Thoughts} />
+      <Stack.Screen name="Ready" component={Ready} />
+      <Stack.Screen name="SOSMedication" component={SOSMedication} />
+      <Stack.Screen name="Opinion" component={Opinion} />
+      <Stack.Screen name="Body" component={Body} />
+      <Stack.Screen name="Feelings" component={Feelings} />
 
-      <Stack.Screen
-        name="Needs"
-        component={Needs}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="AdminSignIn"
-        component={AdminSignIn}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="AdminDashboard"
-        component={AdminDashboard}
-        options={{ headerShown: false }}
-      />
+      <Stack.Screen name="Needs" component={Needs} />
+      <Stack.Screen name="AdminSignIn" component={AdminSignIn} />
+      <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
     </Stack.Navigator>
   );
 }
