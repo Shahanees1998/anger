@@ -279,7 +279,7 @@ const ExpandedForm = ({
       <View style={styles.subThoughtInputContainer}>
         <TextInput
           style={styles.expandedInput}
-          placeholder="add subthought here..."
+          placeholder="Answer this question"
           placeholderTextColor="#FFFFFF80"
           value={subAnswerText}
           onChangeText={setSubAnswertText}

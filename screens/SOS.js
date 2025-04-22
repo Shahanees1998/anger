@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -165,6 +166,25 @@ const SOS = ({ navigation }) => {
               )}
             </>
           )}
+          ListFooterComponent={
+            !isAdmin ? (
+              <TouchableOpacity
+                style={styles.icebergItem}
+                onPress={() => navigation.navigate("Iceberg")}
+              >
+                <View style={styles.itemContent}>
+                  <View style={styles.itemNumber}>
+                    <Text style={styles.itemNumberText}>
+                      {sosQuesitons.length + 1}
+                    </Text>
+                  </View>
+                  <Text style={styles.itemText}>My Iceberg</Text>
+                  <View style={{ width: 24, marginRight: 10 }} />
+                  <Ionicons name="chevron-forward" size={24} color="#FFF" />
+                </View>
+              </TouchableOpacity>
+            ) : null
+          }
         />
 
         {isAdmin && (
@@ -399,5 +419,11 @@ const styles = StyleSheet.create({
   subThoughtSendButton: {
     marginLeft: 10,
     justifyContent: "center",
+  },
+  icebergItem: {
+    backgroundColor: "#274472",
+    borderRadius: 50,
+    padding: 12,
+    marginBottom: 10,
   },
 });
