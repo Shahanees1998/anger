@@ -139,24 +139,41 @@ class DataService {
     if (!user) throw new Error("No authenticated user");
 
     const docRef = doc(db, collectionPath, id);
-    const clientTimestamp = new Date();
-
-    const updateData = {
-      ...data,
-      createdBy: auth.currentUser.uid,
-      createdAt: clientTimestamp,
-    };
 
     try {
       if (await this.isOnline()) {
-        await updateDoc(docRef, {
-          answers: arrayUnion(updateData),
-        });
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const existingData = docSnap.data();
+          const currentDate = new Date().toDateString();
 
-        return;
+          // Filter out any previous answers from the current user
+          const otherAnswers =
+            existingData.answers?.filter(
+              (answer) =>
+                answer.createdBy !== user.uid ||
+                new Date(answer.createdAt?.seconds * 1000).toDateString() ===
+                  currentDate
+            ) || [];
+
+          // Add the new answer
+          const updatedAnswers = [
+            ...otherAnswers,
+            {
+              ...data,
+              createdBy: user.uid,
+              createdAt: serverTimestamp(),
+            },
+          ];
+
+          await updateDoc(docRef, {
+            answers: updatedAnswers,
+          });
+        }
       }
     } catch (error) {
-      console.error("Error adding document:", error);
+      console.error("Error updating document:", error);
+      throw error;
     }
   }
 
@@ -284,16 +301,28 @@ class DataService {
         const documents = querySnapshot.docs.map((doc) => {
           const data = doc.data();
           const currentDate = new Date().toDateString();
+          const user = auth.currentUser;
 
+          // For thoughts-questions, filter answers based on user type
+          if (collectionPath === "thoughts-questions") {
+            // Get user data to check if admin
+            const isAdmin = data.createdBy === user?.uid;
+            return {
+              id: doc.id,
+              question: data.question,
+              createdBy: data.createdBy,
+              createdAt: data.createdAt,
+              // Don't show answers to admins
+              answers: isAdmin ? [] : data.answers || [],
+            };
+          }
+
+          // For other collections, filter answers by current day for current user
           const filteredAnswers = data?.answers?.filter((answer) => {
             const answerDate = new Date(
               answer?.createdAt?.seconds * 1000
             ).toDateString();
-
-            return (
-              answer.createdBy === auth.currentUser?.uid &&
-              answerDate == currentDate
-            );
+            return answer.createdBy === user?.uid && answerDate === currentDate;
           });
 
           return {
@@ -301,16 +330,12 @@ class DataService {
             question: data.question,
             createdBy: data.createdBy,
             createdAt: data.createdAt,
-            answers: filteredAnswers,
+            answers: filteredAnswers || [],
           };
         });
-        // console.log(documents, "here is user documents---");
 
-        // Save to local storage for future offline access
-        // await this.saveLocally(collectionPath, documents);
         return documents;
       }
-
       return [];
     } catch (error) {
       console.error("Error getting collection:", error);
