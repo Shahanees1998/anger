@@ -27,14 +27,21 @@ const Body = ({ navigation }) => {
     question: "",
     answer: "",
   });
+  const [helpInfo, setHelpInfo] = useState(null);
+  const [standaloneThought, setStandaloneThought] = useState("");
+
   const loadBody = async () => {
     try {
       const bodyList = await DataService.getCollection(`body-questions`);
-      setBodyQuestions(bodyList);
+      const helpQuestion = await DataService.getHelpQuestion("body-questions");
+      const regularDocs = bodyList.filter((doc) => !doc.isHelp);
+      setHelpInfo(helpQuestion);
+      setBodyQuestions(regularDocs);
     } catch (error) {
       console.error("Failed to load body:", error);
     }
   };
+
   const checkAuth = async () => {
     try {
       const user = auth.currentUser;
@@ -84,19 +91,82 @@ const Body = ({ navigation }) => {
     }
   };
   const addHelpBody = async () => {
+    // Pre-fill the dialog if help info exists
+    const initialData = helpInfo
+      ? {
+          question: helpInfo.helpQuestion || "",
+          answer: helpInfo.helpAnswer || "",
+        }
+      : {
+          question: "",
+          answer: "",
+        };
+
     setAlertConfig({
-      title: "Add help Question",
-      helpQuestionAnswer,
-      setHelpQuestionAnswer,
+      title: helpInfo ? "Update Help Information" : "Add Help Information",
+      helpQuestionAnswer: true,
+      initialHelpData: initialData,
       onContinue: async (data) => {
         setAlertVisible(false);
         try {
+          if (data.question.trim() && data.answer.trim()) {
+            await DataService.addHelpQuestion("body-questions", {
+              helpQuestion: data.question,
+              helpAnswer: data.answer,
+            });
+            Alert.alert(
+              "Success",
+              helpInfo
+                ? "Help information updated successfully"
+                : "Help information added successfully"
+            );
+            loadBody();
+          }
         } catch (e) {
-          console.log("error", e);
+          console.error("Error updating help:", e);
+          Alert.alert("Error", "Failed to save help information");
         }
       },
     });
     setAlertVisible(true);
+  };
+
+  const showHelpInfo = () => {
+    if (helpInfo) {
+      setAlertConfig({
+        title: "Help Information",
+        message: `${helpInfo.helpQuestion}\n\n${helpInfo.helpAnswer}`,
+        onContinue: () => setAlertVisible(false),
+      });
+      setAlertVisible(true);
+    }
+  };
+
+  const addStandaloneThought = async () => {
+    if (!standaloneThought.trim()) {
+      Alert.alert("Please enter your thought");
+      return;
+    }
+
+    const thoughtData = {
+      question: "",
+      answers: [
+        {
+          answerText: standaloneThought,
+          createdBy: auth.currentUser.uid,
+          createdAt: new Date(),
+        },
+      ],
+    };
+
+    try {
+      await DataService.addDocument(`body-questions`, thoughtData);
+      setStandaloneThought("");
+      loadBody();
+    } catch (error) {
+      console.error("Error adding standalone thought:", error);
+      Alert.alert("Error", "Failed to save thought");
+    }
   };
 
   const toggleExpand = (index) => {
@@ -123,7 +193,9 @@ const Body = ({ navigation }) => {
                       <Text style={styles.itemNumberText}>{index + 1}</Text>
                     </View>
                     <Text style={styles.itemText}>{item.question}</Text>
-
+                    <TouchableOpacity onPress={showHelpInfo}>
+                      <Ionicons name="help-circle" size={24} color="#FFF" />
+                    </TouchableOpacity>
                     <Ionicons
                       name={
                         expandedIndex === index ? "chevron-up" : "chevron-down"
@@ -135,32 +207,6 @@ const Body = ({ navigation }) => {
                 </View>
               </TouchableOpacity>
               {expandedIndex === index && !isAdmin && (
-                // item.answers.map((ele) => (
-                //   <View style={styles.expandedContainer}>
-                //     <Text style={styles.expandedText}>{ele.answerText}</Text>
-                //     <View style={styles.helpfulSection}>
-                //       <View style={styles.likeDislike}>
-                //         <Text style={{ color: "#F2FAFF" }}>Helpful?</Text>
-                //         <TouchableOpacity>
-                //           <Octicons name="thumbsup" size={20} color="#F2FAFF" />
-                //         </TouchableOpacity>
-                //         <TouchableOpacity>
-                //           <Octicons
-                //             name="thumbsdown"
-                //             size={20}
-                //             color="#F2FAFF"
-                //           />
-                //         </TouchableOpacity>
-                //       </View>
-                //       <TouchableOpacity
-                //         style={styles.speakerIcon}
-                //         onPress={() => handleSpeak(item)} // Use item here for speech
-                //       >
-                //         <Ionicons name="volume-high" size={24} color="#fff" />
-                //       </TouchableOpacity>
-                //     </View>
-                //   </View>
-                // ))
                 <ExpandedForm
                   body={item}
                   index={index}
@@ -176,6 +222,8 @@ const Body = ({ navigation }) => {
             </View>
           }
         />
+
+        {/* Admin input section */}
         {isAdmin && (
           <View style={styles.bottomContainer}>
             <View style={{ flexDirection: "row" }}>
@@ -199,31 +247,30 @@ const Body = ({ navigation }) => {
               >
                 <Ionicons name="help" size={24} color="#fff" />
               </TouchableOpacity>
-
-              {/* <TouchableOpacity onPress={addThought} style={styles.sendButton}>
-                      <Ionicons name="paper-plane-outline" size={24} color="#fff" />
-                    </TouchableOpacity> */}
             </View>
-            <View style={{ flexDirection: "row" }}>
-              {/* <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your answer..."
-                  placeholderTextColor="#FFFFFF"
-                  value={answer}
-                  onChangeText={setAnswers}
-                />
-              </View> */}
-              {/* <TouchableOpacity onPress={addBody} style={styles.sendButton}>
+          </View>
+        )}
+
+        {/* User standalone thought input */}
+        {!isAdmin && (
+          <View style={styles.bottomContainer}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Add a new thought..."
+                placeholderTextColor="#FFFFFF"
+                value={standaloneThought}
+                onChangeText={setStandaloneThought}
+                autoCapitalize="none"
+                selectionColor="#FFFFFF"
+              />
+              <TouchableOpacity
+                onPress={addStandaloneThought}
+                style={styles.sendButton}
+              >
                 <Ionicons name="paper-plane-outline" size={24} color="#fff" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.questionIcon}>
-                <Ionicons name="help" size={24} color="#fff" />
-              </TouchableOpacity> */}
             </View>
-            {/* <TouchableOpacity style={styles.questionIcon}>
-                    <Ionicons name="help" size={24} color="#fff" />
-                  </TouchableOpacity> */}
           </View>
         )}
       </View>

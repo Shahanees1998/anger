@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,19 +7,19 @@ import {
   FlatList,
   TextInput,
   ActivityIndicator,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../firebase';
-import { Alert } from 'react-native';
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "../firebase";
+import { Alert } from "react-native";
 // import { v4 as uuidv4 } from "uuid";
-import DataService from '@/services/DataService';
+import DataService from "@/services/DataService";
 
 const Feelings = ({ navigation }) => {
   const [knowledge, setKnowledge] = useState([]);
-  const [question, setQuestion] = useState('');
+  const [question, setQuestion] = useState("");
   const [answers, setAnswers] = useState([]);
   const [expandedIndex, setExpandedIndex] = useState(null);
   const [selectedCardId, setSelectedCardId] = useState(null);
@@ -27,25 +27,23 @@ const Feelings = ({ navigation }) => {
   const [subAnswers, setSubAnswers] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [updateQuestion, setUpdateQuestion] = useState({
-    text: '',
-    questionId: '',
-    subquestionId: '',
+    text: "",
+    questionId: "",
+    subquestionId: "",
   });
   const [loading, setLoading] = useState(false);
 
   const loadKnowledge = async () => {
     try {
       setLoading(true);
-
       const feelingList = await DataService.getFeelingAndNeedsQuestions(
         `feelings-questions`
       );
       setKnowledge(feelingList);
       setLoading(false);
-      // await AsyncStorage.setItem("knowledge", JSON.stringify(dummyData));
     } catch (error) {
       setLoading(false);
-      console.error('Failed to load knowledge from AsyncStorage:', error);
+      console.error("Failed to load knowledge from AsyncStorage:", error);
     }
   };
 
@@ -54,7 +52,7 @@ const Feelings = ({ navigation }) => {
       const user = auth.currentUser;
 
       if (!user) {
-        navigation.replace('SignIn');
+        navigation.replace("SignIn");
       }
 
       const userId = user?.uid;
@@ -65,8 +63,8 @@ const Feelings = ({ navigation }) => {
         setIsAdmin(userData?.isAdmin);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
-      navigation.replace('SignIn');
+      console.error("Auth check failed:", error);
+      navigation.replace("SignIn");
     }
   };
   useEffect(() => {
@@ -78,7 +76,7 @@ const Feelings = ({ navigation }) => {
   const toggleExpand = (index) => {
     setExpandedIndex(index === expandedIndex ? null : index);
     setSelectedCardId(null);
-    setUpdateQuestion({ text: '', subquestionId: '', questionId: '' });
+    setUpdateQuestion({ text: "", subquestionId: "", questionId: "" });
   };
 
   const feelingsData = Array.from({ length: 9 }, (_, index) => ({
@@ -123,16 +121,20 @@ const Feelings = ({ navigation }) => {
 
   const addQuestion = async () => {
     const user = auth.currentUser;
-    if (!user) throw new Error('No authenticated user');
+    if (!user) throw new Error("No authenticated user");
+
+    if (knowledge.length > 0) {
+      Alert.alert("Error", "Only one main question is allowed");
+      return;
+    }
 
     if (question.trim()) {
       const newQuestionId = Math.random().toString(36).substr(2, 20);
-
       const subquestions = subQuestions(newQuestionId);
       const newQuestion = {
         question: question,
-        questionId: newQuestionId, // Store the question ID
-        subquestions, // 9 subquestions each with 9 dummy answers
+        questionId: newQuestionId,
+        subquestions,
       };
 
       try {
@@ -142,12 +144,11 @@ const Feelings = ({ navigation }) => {
           newQuestionId
         );
         loadKnowledge();
+        setQuestion("");
       } catch (error) {
-        console.error('Error adding thought:', error);
-        Alert.alert('Error', 'Failed to save thought');
+        console.error("Error adding thought:", error);
+        Alert.alert("Error", "Failed to save thought");
       }
-
-      setQuestion('');
     }
   };
 
@@ -157,14 +158,14 @@ const Feelings = ({ navigation }) => {
       !updateQuestion.questionId &&
       !updateQuestion.text
     ) {
-      Alert.alert('Error', 'Please click on below item');
+      Alert.alert("Error", "Please click on below item");
       return;
     }
     await DataService.updateFeelingsAndNeedsSubquestions(
       updateQuestion,
-      'feelings-questions'
+      "feelings-questions"
     );
-    setUpdateQuestion({ text: '', subquestionId: '', questionId: '' });
+    setUpdateQuestion({ text: "", subquestionId: "", questionId: "" });
 
     loadKnowledge();
   };
@@ -206,17 +207,20 @@ const Feelings = ({ navigation }) => {
       subquestionId: item.subquestionId,
       answerId: item.id,
       userId: auth.currentUser.uid,
+      createdAt: new Date(), // Add timestamp
     };
 
     try {
       await DataService.checkExistingRecordAndUpdate(
-        'user-feelings-answers',
+        "user-feelings-answers",
         userAnswer
       );
-      Alert.alert('Your answer has been submitted');
+      Alert.alert("Your answer has been submitted");
       setSelectedCardId(null);
+      loadKnowledge(); // Reload to reflect the latest data
     } catch (error) {
-      console.log(error, 'error');
+      console.log(error, "error");
+      Alert.alert("Error", "Failed to save your answer");
     }
   };
 
@@ -233,8 +237,8 @@ const Feelings = ({ navigation }) => {
           <Ionicons
             name={
               selectedRadioButtonId === item.id
-                ? 'radio-button-on'
-                : 'radio-button-off'
+                ? "radio-button-on"
+                : "radio-button-off"
             }
             size={36}
             color="#fff"
@@ -246,7 +250,7 @@ const Feelings = ({ navigation }) => {
   };
 
   return (
-    <LinearGradient colors={['#5885AF', '#5885AF']} style={styles.background}>
+    <LinearGradient colors={["#5885AF", "#5885AF"]} style={styles.background}>
       <Header onBack={() => navigation.goBack()} title="Feelings" />
       <View style={styles.container}>
         {loading ? (
@@ -269,8 +273,8 @@ const Feelings = ({ navigation }) => {
                         <Ionicons
                           name={
                             expandedIndex === index
-                              ? 'chevron-up'
-                              : 'chevron-down'
+                              ? "chevron-up"
+                              : "chevron-down"
                           }
                           size={24}
                           color="#FFF"
@@ -374,115 +378,115 @@ const styles = StyleSheet.create({
     margin: 8,
     aspectRatio: 1,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF1A',
-    boxShadow: '0px 1px 2px 0px #E4E5E73D',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#FFFFFF1A",
+    boxShadow: "0px 1px 2px 0px #E4E5E73D",
+    justifyContent: "center",
+    alignItems: "center",
   },
   selectedCard: {
-    backgroundColor: '#274472',
+    backgroundColor: "#274472",
   },
   circle: {
     width: 40,
     height: 40,
     borderRadius: 40,
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "white",
+    justifyContent: "center",
+    alignItems: "center",
   },
   cardText: {
     marginTop: 8,
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 20,
-    width: '100%',
+    width: "100%",
     paddingHorizontal: 20,
     marginTop: 40,
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
   listItem: {
-    backgroundColor: '#274472',
+    backgroundColor: "#274472",
     borderRadius: 50,
     padding: 8,
     marginBottom: 5,
   },
   itemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   itemNumber: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FFF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "#FFF",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 8,
   },
   itemNumberText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 14,
   },
   itemText: {
     flex: 1,
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 16,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#41729F',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#41729F",
     padding: 12,
     borderRadius: 10,
-    width: '90%',
+    width: "90%",
     marginBottom: 20,
   },
   input: {
     flex: 1,
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 16,
     paddingVertical: 0,
   },
   questionIcon: {
-    backgroundColor: '#274472',
+    backgroundColor: "#274472",
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginLeft: 8,
     marginBottom: 10,
   },
   sendButton: {
     marginLeft: 10,
 
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   bottomContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    position: 'absolute',
+    flexDirection: "row",
+    alignItems: "center",
+    position: "absolute",
     bottom: 20,
     left: 16,
     right: 16,
@@ -490,35 +494,35 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#41729F',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#41729F",
     padding: 12,
     borderRadius: 10,
   },
   questionIcon: {
-    backgroundColor: '#274472',
+    backgroundColor: "#274472",
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   subThoughtInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#41729F',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#41729F",
     borderRadius: 10,
     paddingVertical: 0,
     paddingHorizontal: 10,
   },
   expandedInput: {
     flex: 1,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 14,
   },
   subThoughtSendButton: {
     marginLeft: 10,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
 });

@@ -20,12 +20,21 @@ const CustomAlert = ({
   value,
   helpQuestionAnswer,
   setHelpQuestionAnswer,
+  initialHelpData,
 }) => {
   const [dValue, setDValue] = useState(value);
-  const [helpQuestion, setHelpQuestion] = useState({
-    question: "",
-    answer: "",
-  });
+  const [helpData, setHelpData] = useState(
+    initialHelpData || {
+      question: "",
+      answer: "",
+    }
+  );
+
+  useEffect(() => {
+    if (initialHelpData) {
+      setHelpData(initialHelpData);
+    }
+  }, [initialHelpData]);
 
   return (
     <Modal
@@ -36,18 +45,20 @@ const CustomAlert = ({
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          {/* Icon */}
           {icon && (
             <View style={styles.iconWrapper}>
               <Image source={icon} style={styles.image} />
             </View>
           )}
 
-          {title && <Text style={styles.title}>{title}</Text>}
-
-          {message && <Text style={styles.message}>{message}</Text>}
-
+          {title && !helpQuestionAnswer && (
+            <Text style={styles.title}>{title}</Text>
+          )}
+          {message && !helpQuestionAnswer && (
+            <Text style={styles.message}>{message}</Text>
+          )}
           {email && <Text style={styles.email}>{email}</Text>}
+
           {value && (
             <View style={styles.container}>
               <InputField
@@ -62,47 +73,43 @@ const CustomAlert = ({
             <>
               <View style={styles.container}>
                 <InputField
-                  placeholder={`Add help Question`}
-                  value={helpQuestion.question}
-                  onChangeText={(t) => {
-                    setHelpQuestion({
-                      ...helpQuestion,
-                      question: t,
-                    });
-                  }}
+                  placeholder="Enter help question"
+                  value={helpData.question}
+                  onChangeText={(text) =>
+                    setHelpData((prev) => ({ ...prev, question: text }))
+                  }
                 />
               </View>
               <View style={styles.container}>
                 <InputField
-                  placeholder={`Add help Answer`}
-                  value={helpQuestion.answer}
-                  onChangeText={(t) =>
-                    setHelpQuestion({
-                      ...helpQuestion,
-                      answer: t,
-                    })
+                  placeholder="Enter help answer"
+                  multiline={true}
+                  numberOfLines={3}
+                  value={helpData.answer}
+                  onChangeText={(text) =>
+                    setHelpData((prev) => ({ ...prev, answer: text }))
                   }
                 />
               </View>
             </>
           )}
 
-          {/* Buttons */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={styles.primaryButton}
-              onPress={() =>
-                onContinue(helpQuestion ? helpQuestion.answer : dValue)
-              }
+              onPress={() => onContinue(helpQuestionAnswer ? helpData : dValue)}
             >
-              <Text style={styles.buttonText}>Continue</Text>
+              <Text style={styles.buttonText}>
+                {helpQuestionAnswer
+                  ? initialHelpData
+                    ? "Update"
+                    : "Save"
+                  : "Continue"}
+              </Text>
             </TouchableOpacity>
-            {/* <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={onClose}
-            >
-              <Text style={styles.secondarybuttonText}>Cancel</Text>
-            </TouchableOpacity> */}
+            <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
+              <Text style={styles.secondaryButtonText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -172,7 +179,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#fff",
   },
-  secondarybuttonText: {
+  secondaryButtonText: {
     color: "#000",
   },
   container: {

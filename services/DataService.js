@@ -152,17 +152,16 @@ class DataService {
             existingData.answers?.filter(
               (answer) =>
                 answer.createdBy !== user.uid ||
-                new Date(answer.createdAt?.seconds * 1000).toDateString() ===
-                  currentDate
+                new Date(answer.createdAt).toDateString() === currentDate
             ) || [];
 
-          // Add the new answer
+          // Add the new answer with a regular Date object instead of serverTimestamp
           const updatedAnswers = [
             ...otherAnswers,
             {
               ...data,
               createdBy: user.uid,
-              createdAt: serverTimestamp(),
+              createdAt: new Date(),
             },
           ];
 
@@ -350,19 +349,40 @@ class DataService {
         const documents = querySnapshot.docs.map((doc) => {
           const data = doc.data();
           const currentDate = new Date().toDateString();
+          const user = auth.currentUser;
+
+          // For non-admin users, filter answers by current date
+          if (!data.isAdmin && user) {
+            const filteredSubquestions = data.subquestions.map(
+              (subquestion) => {
+                // Only return answers for the current date and current user
+                const filteredAnswers = subquestion.answers.filter(
+                  (answer) =>
+                    answer.createdBy === user.uid &&
+                    new Date(answer.createdAt).toDateString() === currentDate
+                );
+                return {
+                  ...subquestion,
+                  answers: filteredAnswers,
+                };
+              }
+            );
+
+            return {
+              id: doc.id,
+              ...data,
+              subquestions: filteredSubquestions,
+            };
+          }
 
           return {
             id: doc.id,
             ...data,
           };
         });
-        // console.log(documents, "here is user documents---");
 
-        // Save to local storage for future offline access
-        // await this.saveLocally(collectionPath, documents);
         return documents;
       }
-
       return [];
     } catch (error) {
       console.error("Error getting collection:", error);
@@ -795,6 +815,117 @@ class DataService {
     } catch (error) {
       console.error("Error updating subquestion with media:", error);
       throw error;
+    }
+  }
+
+  static async getHelpDocument(collectionPath) {
+    try {
+      if (await this.isOnline()) {
+        const q = query(
+          collection(db, collectionPath),
+          where("isHelp", "==", true)
+        );
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          const helpDoc = querySnapshot.docs[0];
+          return {
+            id: helpDoc.id,
+            ...helpDoc.data(),
+          };
+        }
+        return null;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error getting help document:", error);
+      return null;
+    }
+  }
+
+  static async updateHelpDocument(collectionPath, data) {
+    try {
+      if (await this.isOnline()) {
+        const helpDoc = await this.getHelpDocument(collectionPath);
+        if (helpDoc) {
+          // Update existing help document
+          await updateDoc(doc(db, collectionPath, helpDoc.id), {
+            helpQuestion: data.question,
+            helpAnswer: data.answer,
+            updatedAt: new Date(),
+          });
+        } else {
+          // Create new help document
+          await this.addDocument(collectionPath, {
+            isHelp: true,
+            helpQuestion: data.question,
+            helpAnswer: data.answer,
+            createdAt: new Date(),
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error updating help document:", error);
+      throw error;
+    }
+  }
+
+  static async addHelpQuestion(collectionName, data) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("No authenticated user");
+
+    try {
+      if (await this.isOnline()) {
+        // First check if a help question already exists for this collection
+        const helpRef = collection(db, "help-questions");
+        const q = query(helpRef, where("collectionName", "==", collectionName));
+        const querySnapshot = await getDocs(q);
+
+        const docData = {
+          ...data,
+          collectionName,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.uid,
+        };
+
+        if (!querySnapshot.empty) {
+          // Update existing help question
+          const docRef = querySnapshot.docs[0].ref;
+          await updateDoc(docRef, docData);
+          return docRef.id;
+        } else {
+          // Create new help question
+          docData.createdAt = serverTimestamp();
+          docData.createdBy = user.uid;
+          const docRef = await addDoc(helpRef, docData);
+          return docRef.id;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error("Error adding/updating help question:", error);
+      throw error;
+    }
+  }
+
+  static async getHelpQuestion(collectionName) {
+    try {
+      if (await this.isOnline()) {
+        const helpRef = collection(db, "help-questions");
+        const q = query(helpRef, where("collectionName", "==", collectionName));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const doc = querySnapshot.docs[0];
+          return {
+            id: doc.id,
+            ...doc.data(),
+          };
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error("Error getting help question:", error);
+      return null;
     }
   }
 }
