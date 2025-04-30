@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,21 +7,26 @@ import {
   TextInput,
   FlatList,
   Alert,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Audio, Video } from "expo-av";
 import DataService from "@/services/DataService";
 import { auth } from "@/firebase";
+import FileUploader from "@/components/FileUploader";
 
 const SOS = ({ navigation }) => {
   const [question, setQuestion] = useState("");
   const [answer, setAnswers] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showFilePicker, setShowFilePicker] = useState(false);
 
   const [sosQuesitons, setSosQuesitons] = useState([]);
   const [likedIndexes, setLikedIndexes] = useState(new Set());
   const [expandedIndex, setExpandedIndex] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const checkAuth = async () => {
     try {
@@ -72,8 +77,8 @@ const SOS = ({ navigation }) => {
   // }, [answers]);
 
   const addAnswer = async () => {
-    if (!question.trim() || !answer.trim()) {
-      Alert.alert("Please fill question and answer field");
+    if (!question.trim()) {
+      Alert.alert("Please fill in the question field");
       return;
     }
 
@@ -81,21 +86,23 @@ const SOS = ({ navigation }) => {
       question,
       answers: [
         {
-          answerText: answer,
+          answerText: answer.trim(),
+          mediaFile: selectedFile,
           createdBy: auth.currentUser.uid,
+          createdAt: new Date().toISOString(),
         },
       ],
     };
 
     try {
       await DataService.addDocument(`sos-questions`, questionData);
-
       setQuestion("");
       setAnswers("");
+      setSelectedFile(null);
       fetchSos();
     } catch (error) {
-      console.error("Error adding thought:", error);
-      Alert.alert("Error", "Failed to save thought");
+      console.error("Error adding question:", error);
+      Alert.alert("Error", "Failed to save question");
     }
   };
 
@@ -199,13 +206,9 @@ const SOS = ({ navigation }) => {
                 autoCapitalize="none"
                 selectionColor="#FFFFFF"
               />
-
-              {/* <TouchableOpacity onPress={addThought} style={styles.sendButton}>
-                     <Ionicons name="paper-plane-outline" size={24} color="#fff" />
-                   </TouchableOpacity> */}
             </View>
-            <View style={{ flexDirection: "row" }}>
-              <View style={styles.inputContainer}>
+            <View style={styles.mediaContainer}>
+              <View style={[styles.inputContainer, { flex: 1 }]}>
                 <TextInput
                   style={styles.input}
                   placeholder="Enter your answer..."
@@ -214,15 +217,24 @@ const SOS = ({ navigation }) => {
                   onChangeText={setAnswers}
                   autoCapitalize="none"
                   selectionColor="#FFFFFF"
+                  multiline
                 />
               </View>
+              <Ionicons
+                onPress={() => {
+                  setShowFilePicker(!showFilePicker);
+                }}
+                name="attach-outline"
+                size={24}
+                color="#fff"
+              />
               <TouchableOpacity onPress={addAnswer} style={styles.sendButton}>
                 <Ionicons name="paper-plane-outline" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
-            {/* <TouchableOpacity style={styles.questionIcon}>
-                   <Ionicons name="help" size={24} color="#fff" />
-                 </TouchableOpacity> */}
+            {showFilePicker && (
+              <FileUploader onFileSelected={setSelectedFile} fileType="all" />
+            )}
           </View>
         )}
       </View>
@@ -239,6 +251,66 @@ const Header = ({ onBack, title }) => (
   </View>
 );
 
+const MediaDisplay = ({ mediaFile }) => {
+  const [sound, setSound] = useState();
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    return sound ? () => sound.unloadAsync() : undefined;
+  }, [sound]);
+
+  if (!mediaFile) return null;
+
+  const { type, uri } = mediaFile;
+
+  if (type.startsWith("image/")) {
+    return (
+      <Image
+        source={{ uri }}
+        style={styles.mediaPreview}
+        resizeMode="contain"
+      />
+    );
+  }
+
+  if (type.startsWith("video/")) {
+    return (
+      <Video
+        ref={videoRef}
+        source={{ uri }}
+        style={styles.mediaPreview}
+        useNativeControls
+        resizeMode="contain"
+      />
+    );
+  }
+
+  if (type.startsWith("audio/")) {
+    const playSound = async () => {
+      if (sound) {
+        await sound.unloadAsync();
+      }
+      const { sound: newSound } = await Audio.Sound.createAsync({ uri });
+      setSound(newSound);
+      await newSound.playAsync();
+    };
+
+    return (
+      <TouchableOpacity onPress={playSound} style={styles.audioButton}>
+        <Ionicons name="play-circle" size={40} color="#FFFFFF" />
+        <Text style={styles.audioText}>Play Audio</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <TouchableOpacity style={styles.documentButton}>
+      <Ionicons name="document" size={40} color="#FFFFFF" />
+      <Text style={styles.documentText}>{mediaFile.name}</Text>
+    </TouchableOpacity>
+  );
+};
+
 const ExpandedForm = ({
   thought,
   index,
@@ -247,15 +319,26 @@ const ExpandedForm = ({
   fetchThoughts,
 }) => {
   const [subAnswerText, setSubAnswertText] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [showFilePicker, setShowFilePicker] = useState(false);
 
   const handleAddSubThought = async () => {
-    if (subAnswerText.trim()) {
+    if (subAnswerText.trim() || selectedFile) {
       const data = {
-        answerText: subAnswerText,
+        answers: [
+          ...(thought.answers || []),
+          {
+            answerText: subAnswerText.trim(),
+            mediaFile: selectedFile,
+            createdBy: auth.currentUser.uid,
+            createdAt: new Date().toISOString(),
+          },
+        ],
       };
 
       await DataService.updateDocument(`sos-questions`, data, thought.id);
       setSubAnswertText("");
+      setSelectedFile(null);
       fetchThoughts();
     }
   };
@@ -264,27 +347,46 @@ const ExpandedForm = ({
     <View style={styles.expandedContainer}>
       {thought.answers?.map((answer, subIndex) => (
         <View key={subIndex} style={styles.subThoughtItem}>
-          <Text style={styles.subThoughtText}>{answer.answerText || ""}</Text>
+          {answer.answerText && (
+            <Text style={styles.subThoughtText}>{answer.answerText}</Text>
+          )}
+          {answer.mediaFile && <MediaDisplay mediaFile={answer.mediaFile} />}
         </View>
       ))}
 
-      <View style={styles.subThoughtInputContainer}>
-        <TextInput
-          style={styles.expandedInput}
-          placeholder="add sub answer here..."
-          placeholderTextColor="#FFFFFF80"
-          value={subAnswerText}
-          onChangeText={setSubAnswertText}
-          autoCapitalize="none"
-          selectionColor="#FFFFFF"
-        />
-        <TouchableOpacity
-          onPress={handleAddSubThought}
-          style={styles.subThoughtSendButton}
-        >
-          <Ionicons name="paper-plane-outline" size={24} color="#274472" />
-        </TouchableOpacity>
-      </View>
+      {auth.currentUser?.uid && (
+        <>
+          <View style={styles.subThoughtInputContainer}>
+            <TextInput
+              style={styles.expandedInput}
+              placeholder="add sub answer here..."
+              placeholderTextColor="#FFFFFF80"
+              value={subAnswerText}
+              onChangeText={setSubAnswertText}
+              autoCapitalize="none"
+              selectionColor="#FFFFFF"
+              multiline
+            />
+            <Ionicons
+              onPress={() => {
+                setShowFilePicker(!showFilePicker);
+              }}
+              name="attach-outline"
+              size={24}
+              color="#274472"
+            />
+            <TouchableOpacity
+              onPress={handleAddSubThought}
+              style={styles.subThoughtSendButton}
+            >
+              <Ionicons name="paper-plane-outline" size={26} color="#274472" />
+            </TouchableOpacity>
+          </View>
+          {showFilePicker && (
+            <FileUploader onFileSelected={setSelectedFile} fileType="all" />
+          )}
+        </>
+      )}
     </View>
   );
 };
@@ -425,5 +527,34 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     padding: 12,
     marginBottom: 10,
+  },
+  mediaContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  mediaPreview: {
+    width: "100%",
+    height: 200,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  audioButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  audioText: {
+    color: "#FFFFFF",
+    marginLeft: 10,
+  },
+  documentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  documentText: {
+    color: "#FFFFFF",
+    marginLeft: 10,
   },
 });
