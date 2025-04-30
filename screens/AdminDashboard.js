@@ -463,7 +463,7 @@ const AdminDashboard = ({ navigation }) => {
                       }
                     />
 
-                    {selectedSection !== "feelings-questions" &&
+                    {/* {selectedSection !== "feelings-questions" &&
                       selectedSection !== "needs-questions" && (
                         <TextInput
                           style={styles.input}
@@ -473,7 +473,7 @@ const AdminDashboard = ({ navigation }) => {
                             handleQuestionChange(text, index, "answer")
                           }
                         />
-                      )}
+                      )} */}
                   </View>
                 ))}
 
