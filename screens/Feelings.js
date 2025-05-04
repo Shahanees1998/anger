@@ -90,9 +90,9 @@ const Feelings = ({ navigation }) => {
       dummyAnswers.push({
         questionId,
         subquestionId,
-        answerText: `feelings answer ${i}`,
-        id: `answer_${Math.random().toString(36).substr(2, 20)}`, // Generate unique ID for each answer
-        createdBy: auth.currentUser.uid, // Assuming user is logged in
+        answerText: ``, // Empty initially, to be filled by admin
+        id: `answer_${Math.random().toString(36).substr(2, 20)}`,
+        createdBy: auth.currentUser.uid,
       });
     }
     return dummyAnswers;
@@ -110,10 +110,10 @@ const Feelings = ({ navigation }) => {
         .toString(36)
         .substr(2, 20)}`;
       subquestions.push({
-        subquestionText: ` ${i}: feelings text`,
+        subquestionText: `Item ${i}`, // Initialize with numbered placeholders
         id: subquestionId,
         questionId,
-        answers: generateDummyAnswers(questionId, subquestionId), // Generate 9 dummy answers
+        answers: generateDummyAnswers(questionId, subquestionId),
       });
     }
     return subquestions;
@@ -171,9 +171,14 @@ const Feelings = ({ navigation }) => {
   };
 
   const renderFeelingsCard = ({ item }) => {
+    const isSelected = updateQuestion.subquestionId === item.id;
     return (
       <View
-        style={[styles.card, selectedCardId === item.id && styles.selectedCard]}
+        style={[
+          styles.card,
+          selectedCardId === item.id && styles.selectedCard,
+          isSelected && styles.adminSelectedCard,
+        ]}
       >
         {!isAdmin && (
           <TouchableOpacity
@@ -193,7 +198,11 @@ const Feelings = ({ navigation }) => {
               });
           }}
         >
-          <Text style={styles.cardText}>{item.subquestionText}</Text>
+          <Text
+            style={[styles.cardText, isSelected && styles.adminSelectedText]}
+          >
+            {item.subquestionText}
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -524,5 +533,13 @@ const styles = StyleSheet.create({
   subThoughtSendButton: {
     marginLeft: 10,
     justifyContent: "center",
+  },
+  adminSelectedCard: {
+    backgroundColor: "#41729F",
+    borderWidth: 2,
+    borderColor: "#FFF",
+  },
+  adminSelectedText: {
+    fontWeight: "bold",
   },
 });
