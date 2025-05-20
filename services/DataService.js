@@ -928,6 +928,113 @@ class DataService {
       return null;
     }
   }
+
+  static async addThirdLevelItem(
+    collection,
+    questionId,
+    subquestionId,
+    newThirdLevel
+  ) {
+    try {
+      const docRef = doc(db, collection, questionId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const subquestions = data.subquestions || [];
+
+        const subIndex = subquestions.findIndex(
+          (sq) => sq.id === subquestionId
+        );
+
+        if (subIndex !== -1) {
+          if (!subquestions[subIndex].thirdLevel) {
+            subquestions[subIndex].thirdLevel = [];
+          }
+
+          // Ensure we only have 9 items maximum
+          if (subquestions[subIndex].thirdLevel.length >= 9) {
+            throw new Error("Maximum number of third level items reached");
+          }
+
+          // Add new third level item with empty answers array
+          const thirdLevelItem = {
+            ...newThirdLevel,
+            answers: Array(9)
+              .fill({})
+              .map((_, i) => ({
+                id: `answer_${Math.random().toString(36).substr(2, 20)}`,
+                answerText: "",
+                order: i + 1,
+                createdBy: auth.currentUser.uid,
+                createdAt: new Date(),
+              })),
+          };
+
+          subquestions[subIndex].thirdLevel.push(thirdLevelItem);
+
+          // Update the document
+          await updateDoc(docRef, {
+            subquestions: subquestions,
+          });
+
+          return true;
+        }
+      }
+      throw new Error("Question or subquestion not found");
+    } catch (error) {
+      console.error("Error adding third level item:", error);
+      throw error;
+    }
+  }
+
+  static async updateThirdLevelAnswer(
+    collection,
+    questionId,
+    subquestionId,
+    thirdLevelId,
+    answerId,
+    answerText
+  ) {
+    try {
+      const docRef = doc(db, collection, questionId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const subquestions = data.subquestions || [];
+
+        const subQuestion = subquestions.find((sq) => sq.id === subquestionId);
+        if (!subQuestion) throw new Error("Subquestion not found");
+
+        const thirdLevelItem = subQuestion.thirdLevel.find(
+          (tl) => tl.id === thirdLevelId
+        );
+        if (!thirdLevelItem) throw new Error("Third level item not found");
+
+        const answerIndex = thirdLevelItem.answers.findIndex(
+          (a) => a.id === answerId
+        );
+        if (answerIndex === -1) throw new Error("Answer not found");
+
+        // Update the answer text
+        thirdLevelItem.answers[answerIndex].answerText = answerText;
+        thirdLevelItem.answers[answerIndex].updatedAt = new Date();
+        thirdLevelItem.answers[answerIndex].updatedBy = auth.currentUser.uid;
+
+        // Update the document
+        await updateDoc(docRef, {
+          subquestions: subquestions,
+        });
+
+        return true;
+      }
+      throw new Error("Question not found");
+    } catch (error) {
+      console.error("Error updating third level answer:", error);
+      throw error;
+    }
+  }
 }
 
 export default DataService;

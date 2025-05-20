@@ -1,19 +1,17 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  TextInput,
-  ActivityIndicator,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "../firebase";
-import { Alert } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { auth } from "../firebase";
 // import { v4 as uuidv4 } from "uuid";
 import DataService from "@/services/DataService";
 
@@ -32,6 +30,10 @@ const Feelings = ({ navigation }) => {
     subquestionId: "",
   });
   const [loading, setLoading] = useState(false);
+  const [thirdLevelItems, setThirdLevelItems] = useState([]);
+  const [thirdLevelSelected, setThirdLevelSelected] = useState(false);
+  const [thirdLevelInput, setThirdLevelInput] = useState("");
+  const [editingThirdLevel, setEditingThirdLevel] = useState(null);
 
   const loadKnowledge = async () => {
     try {
@@ -84,35 +86,52 @@ const Feelings = ({ navigation }) => {
     text: `Feeling ${index + 1}`,
   }));
 
-  const generateDummyAnswers = (questionId, subquestionId) => {
+  const generateDummyAnswers = (
+    questionId,
+    subquestionId,
+    thirdLevelId = null
+  ) => {
     const dummyAnswers = [];
     for (let i = 1; i <= 9; i++) {
       dummyAnswers.push({
         questionId,
         subquestionId,
-        answerText: ``, // Empty initially, to be filled by admin
+        thirdLevelId,
+        answerText: "",
         id: `answer_${Math.random().toString(36).substr(2, 20)}`,
         createdBy: auth.currentUser.uid,
+        order: i,
       });
     }
     return dummyAnswers;
   };
 
-  const getAnswers = (item) => {
-    setSubAnswers(item.answers);
-    setSelectedCardId(item.id);
+  const generateThirdLevelItems = (questionId, subquestionId) => {
+    const thirdLevel = [];
+    for (let i = 1; i <= 9; i++) {
+      const thirdLevelId = `third_${Math.random().toString(36).substr(2, 20)}`;
+      thirdLevel.push({
+        text: `Sub-item ${i}`,
+        id: thirdLevelId,
+        questionId,
+        subquestionId,
+        answers: generateDummyAnswers(questionId, subquestionId, thirdLevelId),
+      });
+    }
+    return thirdLevel;
   };
 
-  const subQuestions = (questionId) => {
+  const generateSubQuestions = (questionId) => {
     const subquestions = [];
     for (let i = 1; i <= 9; i++) {
       const subquestionId = `subquestion_${Math.random()
         .toString(36)
         .substr(2, 20)}`;
       subquestions.push({
-        subquestionText: `Item ${i}`, // Initialize with numbered placeholders
+        subquestionText: `Item ${i}`,
         id: subquestionId,
         questionId,
+        thirdLevel: generateThirdLevelItems(questionId, subquestionId),
         answers: generateDummyAnswers(questionId, subquestionId),
       });
     }
@@ -130,7 +149,7 @@ const Feelings = ({ navigation }) => {
 
     if (question.trim()) {
       const newQuestionId = Math.random().toString(36).substr(2, 20);
-      const subquestions = subQuestions(newQuestionId);
+      const subquestions = generateSubQuestions(newQuestionId);
       const newQuestion = {
         question: question,
         questionId: newQuestionId,
@@ -170,32 +189,95 @@ const Feelings = ({ navigation }) => {
     loadKnowledge();
   };
 
+  const getAnswers = (item) => {
+    if (!item.answers || item.answers.length === 0) {
+      Alert.alert("Error", "No answers available for this item");
+      return;
+    }
+
+    if (item.thirdLevel) {
+      setThirdLevelItems(item.thirdLevel);
+      setThirdLevelSelected(true);
+    } else {
+      setSubAnswers(
+        item.answers.filter((answer) => answer.answerText.trim() !== "")
+      );
+      setSelectedCardId(item.id);
+    }
+  };
+
+  const handleBackFromThirdLevel = () => {
+    setThirdLevelSelected(false);
+    setThirdLevelItems([]);
+  };
+
+  const handleAddThirdLevel = async (subquestionId, questionId) => {
+    if (!thirdLevelInput.trim()) {
+      Alert.alert("Error", "Please enter text for the third level item");
+      return;
+    }
+
+    const newThirdLevel = {
+      text: thirdLevelInput,
+      id: `third_${Math.random().toString(36).substr(2, 20)}`,
+      questionId,
+      subquestionId,
+      answers: generateDummyAnswers(questionId, subquestionId),
+    };
+
+    try {
+      await DataService.addThirdLevelItem(
+        "feelings-questions",
+        questionId,
+        subquestionId,
+        newThirdLevel
+      );
+      setThirdLevelInput("");
+      setEditingThirdLevel(null);
+      loadKnowledge();
+    } catch (error) {
+      console.error("Error adding third level item:", error);
+      Alert.alert("Error", "Failed to add third level item");
+    }
+  };
+
   const renderFeelingsCard = ({ item }) => {
     const isSelected = updateQuestion.subquestionId === item.id;
+    const hasAnswers =
+      (item.answers && item.answers.some((a) => a.answerText.trim() !== "")) ||
+      (item.thirdLevel && item.thirdLevel.length > 0);
+
     return (
       <View
         style={[
           styles.card,
           selectedCardId === item.id && styles.selectedCard,
           isSelected && styles.adminSelectedCard,
+          !hasAnswers && !isAdmin && styles.disabledCard,
         ]}
       >
         {!isAdmin && (
           <TouchableOpacity
-            style={styles.circle}
-            onPress={() => getAnswers(item)}
+            style={[styles.circle, !hasAnswers && styles.disabledCircle]}
+            onPress={() => hasAnswers && getAnswers(item)}
           >
-            <Ionicons name="arrow-forward" size={24} color="#274472" />
+            <Ionicons
+              name={item.thirdLevel ? "git-branch-outline" : "arrow-forward"}
+              size={24}
+              color="#274472"
+            />
           </TouchableOpacity>
         )}
         <TouchableOpacity
           onPress={() => {
-            isAdmin &&
+            if (isAdmin) {
+              setEditingThirdLevel(item.id);
               setUpdateQuestion({
                 subquestionId: item.id,
                 questionId: item.questionId,
                 text: item.subquestionText,
               });
+            }
           }}
         >
           <Text
@@ -204,11 +286,34 @@ const Feelings = ({ navigation }) => {
             {item.subquestionText}
           </Text>
         </TouchableOpacity>
+        {isAdmin && editingThirdLevel === item.id && (
+          <View style={styles.thirdLevelInputContainer}>
+            <TextInput
+              style={styles.thirdLevelInput}
+              placeholder="Add sub-item..."
+              placeholderTextColor="#FFFFFF80"
+              value={thirdLevelInput}
+              onChangeText={setThirdLevelInput}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              onPress={() => handleAddThirdLevel(item.id, item.questionId)}
+              style={styles.addThirdLevelButton}
+            >
+              <Ionicons name="add-circle" size={24} color="#274472" />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
   };
 
   const updateAnswers = async (item) => {
+    if (!item.answerText && !isAdmin) {
+      Alert.alert("Error", "This answer is not available yet");
+      return;
+    }
+
     setSelectedRadioButtonId(item.id);
 
     const userAnswer = {
@@ -216,7 +321,8 @@ const Feelings = ({ navigation }) => {
       subquestionId: item.subquestionId,
       answerId: item.id,
       userId: auth.currentUser.uid,
-      createdAt: new Date(), // Add timestamp
+      answer: item.answerText,
+      createdAt: new Date(),
     };
 
     try {
@@ -224,11 +330,11 @@ const Feelings = ({ navigation }) => {
         "user-feelings-answers",
         userAnswer
       );
-      Alert.alert("Your answer has been submitted");
+      Alert.alert("Success", "Your answer has been saved");
       setSelectedCardId(null);
-      loadKnowledge(); // Reload to reflect the latest data
+      loadKnowledge();
     } catch (error) {
-      console.log(error, "error");
+      console.error("Error saving answer:", error);
       Alert.alert("Error", "Failed to save your answer");
     }
   };
@@ -260,13 +366,22 @@ const Feelings = ({ navigation }) => {
 
   return (
     <LinearGradient colors={["#5885AF", "#5885AF"]} style={styles.background}>
-      <Header onBack={() => navigation.goBack()} title="Feelings" />
+      <Header
+        onBack={() => {
+          if (thirdLevelSelected) {
+            handleBackFromThirdLevel();
+          } else {
+            navigation.goBack();
+          }
+        }}
+        title={thirdLevelSelected ? "Sub-items" : "Feelings"}
+      />
       <View style={styles.container}>
         {loading ? (
           <ActivityIndicator size="large" color="white" />
         ) : (
           <FlatList
-            data={knowledge}
+            data={thirdLevelSelected ? thirdLevelItems : knowledge}
             keyExtractor={(item, index) => index.toString()}
             renderItem={({ item, index }) => {
               const squesutions = item.subquestions;
@@ -541,5 +656,32 @@ const styles = StyleSheet.create({
   },
   adminSelectedText: {
     fontWeight: "bold",
+  },
+  disabledCard: {
+    opacity: 0.5,
+  },
+  disabledCircle: {
+    opacity: 0.5,
+  },
+  thirdLevelInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#41729F",
+    borderRadius: 5,
+    padding: 5,
+    marginTop: 5,
+    width: "100%",
+  },
+  thirdLevelInput: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 12,
+    padding: 2,
+  },
+  addThirdLevelButton: {
+    padding: 5,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 15,
+    marginLeft: 5,
   },
 });
