@@ -10,39 +10,74 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { auth } from "@/firebase";
+import DataService from "@/services/DataService";
 
 const SOSHome = ({ navigation }) => {
   const [text, setText] = useState("");
   const [answers, setAnswers] = useState([]);
   const [likedIndexes, setLikedIndexes] = useState(new Set());
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const fetchAnswers = async () => {
       try {
+        const user = auth.currentUser;
+        const userId = user?.uid;
+        let isUserAdmin = false;
+
+        if (userId) {
+          const userData = await DataService.getUserData(userId).catch(
+            console.error
+          );
+          isUserAdmin = userData?.isAdmin;
+          setIsAdmin(isUserAdmin);
+        }
+
         const storedAnswers = await AsyncStorage.getItem("answers");
         if (storedAnswers) {
           // Parse the stored answers
           let parsedAnswers = JSON.parse(storedAnswers);
 
-          // Filter out "Iceberg" or "My Iceberg" from the answers if it exists
-          parsedAnswers = parsedAnswers.filter(
-            (item) => item !== "Iceberg" && item !== "My Iceberg"
-          );
+          if (isUserAdmin) {
+            // For admin, remove "My Iceberg" completely
+            parsedAnswers = parsedAnswers.filter(
+              (item) => item !== "Iceberg" && item !== "My Iceberg"
+            );
+          } else {
+            // For regular users, make "My Iceberg" the first method
+            parsedAnswers = parsedAnswers.filter(
+              (item) => item !== "Iceberg" && item !== "My Iceberg"
+            );
 
-          // Add "My Iceberg" as the last item
-          parsedAnswers.push("My Iceberg");
+            // Add "My Iceberg" as the first item
+            parsedAnswers.unshift("My Iceberg");
+          }
 
           setAnswers(parsedAnswers);
           await AsyncStorage.setItem("answers", JSON.stringify(parsedAnswers));
         } else {
-          const defaultAnswers = [
-            "Method 1",
-            "Method 2",
-            "Method 3",
-            "Method 4",
-            "Method 5",
-            "My Iceberg",
-          ];
+          // Set default answers based on user role
+          let defaultAnswers;
+          if (isUserAdmin) {
+            defaultAnswers = [
+              "Method 1",
+              "Method 2",
+              "Method 3",
+              "Method 4",
+              "Method 5",
+            ];
+          } else {
+            defaultAnswers = [
+              "My Iceberg",
+              "Method 1",
+              "Method 2",
+              "Method 3",
+              "Method 4",
+              "Method 5",
+            ];
+          }
+
           setAnswers(defaultAnswers);
           await AsyncStorage.setItem("answers", JSON.stringify(defaultAnswers));
         }

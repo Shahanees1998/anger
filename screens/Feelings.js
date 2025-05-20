@@ -108,6 +108,7 @@ const Feelings = ({ navigation }) => {
 
   const generateThirdLevelItems = (questionId, subquestionId) => {
     const thirdLevel = [];
+    // Ensure exactly 9 items
     for (let i = 1; i <= 9; i++) {
       const thirdLevelId = `third_${Math.random().toString(36).substr(2, 20)}`;
       thirdLevel.push({
@@ -123,6 +124,7 @@ const Feelings = ({ navigation }) => {
 
   const generateSubQuestions = (questionId) => {
     const subquestions = [];
+    // Ensure exactly 9 items
     for (let i = 1; i <= 9; i++) {
       const subquestionId = `subquestion_${Math.random()
         .toString(36)
@@ -199,9 +201,38 @@ const Feelings = ({ navigation }) => {
       setThirdLevelItems(item.thirdLevel);
       setThirdLevelSelected(true);
     } else {
-      setSubAnswers(
-        item.answers.filter((answer) => answer.answerText.trim() !== "")
-      );
+      // Filter answers to only show:
+      // 1. Those that have content
+      // 2. Those created by the current user
+      // 3. Those created within the last 24 hours
+      const currentTime = new Date();
+      const userId = auth.currentUser.uid;
+
+      const filteredAnswers = item.answers.filter((answer) => {
+        // Check if the answer has content
+        const hasContent = answer.answerText.trim() !== "";
+
+        // Check if the answer belongs to the current user
+        const isCurrentUserAnswer = answer.createdBy === userId;
+
+        // Check if the answer was created within the last 24 hours
+        let isWithin24Hours = true; // Default to true if no creation date
+        if (answer.createdAt) {
+          const answerDate =
+            answer.createdAt instanceof Date
+              ? answer.createdAt
+              : new Date(answer.createdAt);
+
+          // Calculate time difference in milliseconds
+          const timeDiff = currentTime - answerDate;
+          // 24 hours = 86400000 milliseconds
+          isWithin24Hours = timeDiff <= 86400000;
+        }
+
+        return hasContent && isCurrentUserAnswer && isWithin24Hours;
+      });
+
+      setSubAnswers(filteredAnswers);
       setSelectedCardId(item.id);
     }
   };
@@ -443,6 +474,7 @@ const Feelings = ({ navigation }) => {
                         }
                         numColumns={3}
                         contentContainerStyle={styles.grid}
+                        columnWrapperStyle={styles.columnWrapper}
                       />
                     </>
                   )}
@@ -497,9 +529,13 @@ const styles = StyleSheet.create({
   grid: {
     padding: 16,
   },
+  columnWrapper: {
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
   card: {
     flex: 1,
-    margin: 8,
+    margin: 4,
     aspectRatio: 1,
     borderRadius: 10,
     backgroundColor: "#FFFFFF1A",

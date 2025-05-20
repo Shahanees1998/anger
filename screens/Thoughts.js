@@ -127,14 +127,14 @@ const Thoughts = ({ navigation }) => {
   };
 
   const editThought = async (item) => {
-    // console.log(item, "here is edit item ==>>>>");
     setAlertConfig({
       title: "Edit Thought",
       value: item.question,
       onContinue: async (data) => {
         setAlertVisible(false);
         try {
-          if (data.trim() !== "" && data !== item.question) {
+          // Allow empty data values and update only if changed
+          if (data !== item.question) {
             await DataService.updateQuestions(
               "thoughts-questions",
               data,
@@ -143,7 +143,8 @@ const Thoughts = ({ navigation }) => {
             fetchThoughts();
           }
         } catch (e) {
-          console.log("error", e);
+          console.error("Error updating thought:", e);
+          Alert.alert("Error", "Failed to update thought");
         }
       },
     });
@@ -304,6 +305,41 @@ const ExpandedForm = ({
   isAdmin,
 }) => {
   const [subAnswerText, setSubAnswertText] = useState("");
+  const [filteredAnswers, setFilteredAnswers] = useState([]);
+
+  useEffect(() => {
+    // Filter answers based on user ID and time
+    if (thought?.answers) {
+      const currentTime = new Date();
+      const userId = auth.currentUser.uid;
+
+      // Filter to only show answers:
+      // 1. Created by the current user
+      // 2. Created within the last 24 hours
+      const filtered = thought.answers.filter((answer) => {
+        // Check if the answer belongs to the current user
+        const isCurrentUserAnswer = answer.createdBy === userId;
+
+        // Check if the answer was created within the last 24 hours
+        let isWithin24Hours = false;
+        if (answer.createdAt) {
+          const answerDate =
+            answer.createdAt instanceof Date
+              ? answer.createdAt
+              : new Date(answer.createdAt);
+
+          // Calculate time difference in milliseconds
+          const timeDiff = currentTime - answerDate;
+          // 24 hours = 86400000 milliseconds
+          isWithin24Hours = timeDiff <= 86400000;
+        }
+
+        return isCurrentUserAnswer && isWithin24Hours;
+      });
+
+      setFilteredAnswers(filtered);
+    }
+  }, [thought]);
 
   const handleAddSubThought = async () => {
     if (subAnswerText.trim()) {
@@ -324,7 +360,7 @@ const ExpandedForm = ({
 
   return (
     <View style={styles.expandedContainer}>
-      {thought?.answers?.map((answer, subIndex) => (
+      {filteredAnswers.map((answer, subIndex) => (
         <View key={subIndex} style={styles.subThoughtItem}>
           <Text style={styles.subThoughtText}>{answer.answerText}</Text>
         </View>
