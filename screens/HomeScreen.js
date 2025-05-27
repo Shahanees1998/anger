@@ -292,7 +292,7 @@ const HomeScreen = ({ navigation }) => {
 
           <Tab.Screen
             name="Central"
-            component={Ready}
+            component={SOSHome}
             options={{
               tabBarButton: (props) => (
                 <CustomTabBarButton {...props}>

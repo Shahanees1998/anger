@@ -19,6 +19,8 @@ import ChangePassword from "./screens/ChangePassword";
 import SubmittedAnswers from "./screens/SubmittedAnswers";
 import Knowledge from "./screens/Knowledge";
 import SOS from "./screens/SOS";
+import SOSHome from "./screens/SOSHome";
+import IceBerg from "./screens/IceBerg";
 import Thoughts from "./screens/Thoughts";
 import Ready from "./screens/Ready";
 import SOSMedication from "./screens/SOSMedication";
@@ -79,6 +81,8 @@ export default function App() {
       <Stack.Screen name="SubmittedAnswers" component={SubmittedAnswers} />
       <Stack.Screen name="Knowledge" component={Knowledge} />
       <Stack.Screen name="SOS" component={SOS} />
+      <Stack.Screen name="SOSHome" component={SOSHome} />
+      <Stack.Screen name="Iceberg" component={IceBerg} />
       <Stack.Screen name="Thoughts" component={Thoughts} />
       <Stack.Screen name="Ready" component={Ready} />
       <Stack.Screen name="SOSMedication" component={SOSMedication} />

@@ -1,30 +1,26 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  FlatList,
-  Alert,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import {
-  Ionicons,
-  MaterialCommunityIcons,
-  Octicons,
-  AntDesign,
-} from "@expo/vector-icons";
-import { auth } from "../firebase";
-import { serverTimestamp } from "firebase/firestore";
-import DataService from "../services/DataService";
 import CustomAlert from "@/components/CustomAlert";
+import { AntDesign, Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { serverTimestamp } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { auth } from "../firebase";
+import DataService from "../services/DataService";
 
 const Thoughts = ({ navigation }) => {
   const [question, setQuestion] = useState("");
   const [answer, setAnswers] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [editQueston, setEditQuestion] = useState("");
+  const [standaloneAnswer, setStandaloneAnswer] = useState("");
 
   const [thoughts, setThoughts] = useState([]);
   const [expandedIndex, setExpandedIndex] = useState(null);
@@ -102,24 +98,52 @@ const Thoughts = ({ navigation }) => {
     }
   };
 
+  const addStandaloneAnswer = async () => {
+    if (!standaloneAnswer.trim()) {
+      Alert.alert("Please enter your thought");
+      return;
+    }
+    const clientTimestamp = new Date();
+    const questionData = {
+      question: "",
+      answers: [
+        {
+          answerText: standaloneAnswer,
+          createdBy: auth.currentUser.uid,
+          createdAt: serverTimestamp(),
+          createdAt: clientTimestamp,
+        },
+      ],
+    };
+
+    try {
+      await DataService.addDocument(`thoughts-questions`, questionData);
+      setStandaloneAnswer("");
+      fetchThoughts();
+    } catch (error) {
+      console.error("Error adding thought:", error);
+      Alert.alert("Error", "Failed to save thought");
+    }
+  };
+
   const editThought = async (item) => {
-    // console.log(item, "here is edit item ==>>>>");
     setAlertConfig({
       title: "Edit Thought",
-      value: item.question,
+      value: item.question || "", // Handle empty questions
+      allowEmpty: true, // Allow editing of empty questions
       onContinue: async (data) => {
         setAlertVisible(false);
         try {
-          if (data.trim() !== "" && data !== item.question) {
-            await DataService.updateQuestions(
-              "thoughts-questions",
-              data,
-              item.id
-            );
-            fetchThoughts();
-          }
+          // Allow empty questions to be edited and always update regardless of value
+          await DataService.updateQuestions(
+            "thoughts-questions",
+            data || "", // Allow empty string
+            item.id
+          );
+          fetchThoughts();
         } catch (e) {
-          console.log("error", e);
+          console.error("Error updating thought:", e);
+          Alert.alert("Error", "Failed to update thought");
         }
       },
     });
@@ -185,7 +209,32 @@ const Thoughts = ({ navigation }) => {
           )}
         />
 
-        {/* Input Field */}
+        {/* Bottom Input Field for Standalone Answer - Only for non-admin users */}
+        {!isAdmin && (
+          <View style={[styles.bottomContainer, { bottom: 20 }]}>
+            <View style={{ flexDirection: "row" }}>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Share your thought..."
+                  placeholderTextColor="#FFFFFF"
+                  value={standaloneAnswer}
+                  onChangeText={setStandaloneAnswer}
+                  autoCapitalize="none"
+                  selectionColor="#FFFFFF"
+                />
+              </View>
+              <TouchableOpacity
+                onPress={addStandaloneAnswer}
+                style={styles.sendButton}
+              >
+                <Ionicons name="paper-plane-outline" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Admin Input Fields */}
         {isAdmin && (
           <View style={styles.bottomContainer}>
             <View style={styles.inputContainer}>
@@ -255,6 +304,41 @@ const ExpandedForm = ({
   isAdmin,
 }) => {
   const [subAnswerText, setSubAnswertText] = useState("");
+  const [filteredAnswers, setFilteredAnswers] = useState([]);
+
+  useEffect(() => {
+    // Filter answers based on user ID and time
+    if (thought?.answers) {
+      const currentTime = new Date();
+      const userId = auth.currentUser.uid;
+
+      // Filter to only show answers:
+      // 1. Created by the current user
+      // 2. Created within the last 24 hours
+      const filtered = thought.answers.filter((answer) => {
+        // Check if the answer belongs to the current user
+        const isCurrentUserAnswer = answer.createdBy === userId;
+
+        // Check if the answer was created within the last 24 hours
+        let isWithin24Hours = false;
+        if (answer.createdAt) {
+          const answerDate =
+            answer.createdAt instanceof Date
+              ? answer.createdAt
+              : new Date(answer.createdAt);
+
+          // Calculate time difference in milliseconds
+          const timeDiff = currentTime - answerDate;
+          // 24 hours = 86400000 milliseconds
+          isWithin24Hours = timeDiff <= 86400000;
+        }
+
+        return isCurrentUserAnswer && isWithin24Hours;
+      });
+
+      setFilteredAnswers(filtered);
+    }
+  }, [thought]);
 
   const handleAddSubThought = async () => {
     if (subAnswerText.trim()) {
@@ -268,9 +352,14 @@ const ExpandedForm = ({
     }
   };
 
+  // Don't show answers or input field for admins
+  if (isAdmin) {
+    return null;
+  }
+
   return (
     <View style={styles.expandedContainer}>
-      {thought?.answers?.map((answer, subIndex) => (
+      {filteredAnswers.map((answer, subIndex) => (
         <View key={subIndex} style={styles.subThoughtItem}>
           <Text style={styles.subThoughtText}>{answer.answerText}</Text>
         </View>
@@ -279,7 +368,7 @@ const ExpandedForm = ({
       <View style={styles.subThoughtInputContainer}>
         <TextInput
           style={styles.expandedInput}
-          placeholder="add subthought here..."
+          placeholder="Answer this question"
           placeholderTextColor="#FFFFFF80"
           value={subAnswerText}
           onChangeText={setSubAnswertText}

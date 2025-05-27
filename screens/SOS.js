@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -6,21 +6,27 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
+  Alert,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Audio, Video } from "expo-av";
 import DataService from "@/services/DataService";
 import { auth } from "@/firebase";
+import FileUploader from "@/components/FileUploader";
 
 const SOS = ({ navigation }) => {
   const [question, setQuestion] = useState("");
   const [answer, setAnswers] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showFilePicker, setShowFilePicker] = useState(false);
 
   const [sosQuesitons, setSosQuesitons] = useState([]);
   const [likedIndexes, setLikedIndexes] = useState(new Set());
   const [expandedIndex, setExpandedIndex] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const checkAuth = async () => {
     try {
@@ -71,8 +77,8 @@ const SOS = ({ navigation }) => {
   // }, [answers]);
 
   const addAnswer = async () => {
-    if (!question.trim() || !answer.trim()) {
-      Alert.alert("Please fill question and answer field");
+    if (!question.trim()) {
+      Alert.alert("Please fill in the question field");
       return;
     }
 
@@ -80,21 +86,23 @@ const SOS = ({ navigation }) => {
       question,
       answers: [
         {
-          answerText: answer,
+          answerText: answer.trim(),
+          mediaFile: selectedFile,
           createdBy: auth.currentUser.uid,
+          createdAt: new Date().toISOString(),
         },
       ],
     };
 
     try {
       await DataService.addDocument(`sos-questions`, questionData);
-
       setQuestion("");
       setAnswers("");
+      setSelectedFile(null);
       fetchSos();
     } catch (error) {
-      console.error("Error adding thought:", error);
-      Alert.alert("Error", "Failed to save thought");
+      console.error("Error adding question:", error);
+      Alert.alert("Error", "Failed to save question");
     }
   };
 
@@ -128,29 +136,28 @@ const SOS = ({ navigation }) => {
                     <Text style={styles.itemNumberText}>{index + 1}</Text>
                   </View>
                   <Text style={styles.itemText}>{item.question}</Text>
-                  <TouchableOpacity
-                    onPress={() => toggleLike(index)}
-                    style={{ marginRight: 10 }}
-                  >
-                    <Ionicons
-                      name={likedIndexes.has(index) ? "heart" : "heart-outline"}
-                      size={24}
-                      color="#FFF"
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => toggleExpand(index)}
-                    // onPress={() => navigation.navigate("Ready", { item })}
-                  >
+                  {!isAdmin && (
+                    <TouchableOpacity
+                      onPress={() => toggleLike(index)}
+                      style={{ marginRight: 10 }}
+                    >
+                      <Ionicons
+                        name={
+                          likedIndexes.has(index) ? "heart" : "heart-outline"
+                        }
+                        size={24}
+                        color="#FFF"
+                      />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => toggleExpand(index)}>
                     <Ionicons
                       name={
-                        expandedIndex === index
-                          ? "chevron-forward"
-                          : "chevron-down"
+                        expandedIndex === index ? "chevron-up" : "chevron-down"
                       }
                       size={24}
                       color="#FFF"
-                    />{" "}
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -165,6 +172,25 @@ const SOS = ({ navigation }) => {
               )}
             </>
           )}
+          ListFooterComponent={
+            !isAdmin ? (
+              <TouchableOpacity
+                style={styles.icebergItem}
+                onPress={() => navigation.navigate("Iceberg")}
+              >
+                <View style={styles.itemContent}>
+                  <View style={styles.itemNumber}>
+                    <Text style={styles.itemNumberText}>
+                      {sosQuesitons.length + 1}
+                    </Text>
+                  </View>
+                  <Text style={styles.itemText}>My Iceberg</Text>
+                  <View style={{ width: 24, marginRight: 10 }} />
+                  <Ionicons name="chevron-forward" size={24} color="#FFF" />
+                </View>
+              </TouchableOpacity>
+            ) : null
+          }
         />
 
         {isAdmin && (
@@ -179,13 +205,9 @@ const SOS = ({ navigation }) => {
                 autoCapitalize="none"
                 selectionColor="#FFFFFF"
               />
-
-              {/* <TouchableOpacity onPress={addThought} style={styles.sendButton}>
-                     <Ionicons name="paper-plane-outline" size={24} color="#fff" />
-                   </TouchableOpacity> */}
             </View>
-            <View style={{ flexDirection: "row" }}>
-              <View style={styles.inputContainer}>
+            <View style={styles.mediaContainer}>
+              <View style={[styles.inputContainer, { flex: 1 }]}>
                 <TextInput
                   style={styles.input}
                   placeholder="Enter your answer..."
@@ -194,15 +216,24 @@ const SOS = ({ navigation }) => {
                   onChangeText={setAnswers}
                   autoCapitalize="none"
                   selectionColor="#FFFFFF"
+                  multiline
                 />
               </View>
+              <Ionicons
+                onPress={() => {
+                  setShowFilePicker(!showFilePicker);
+                }}
+                name="attach-outline"
+                size={24}
+                color="#fff"
+              />
               <TouchableOpacity onPress={addAnswer} style={styles.sendButton}>
                 <Ionicons name="paper-plane-outline" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
-            {/* <TouchableOpacity style={styles.questionIcon}>
-                   <Ionicons name="help" size={24} color="#fff" />
-                 </TouchableOpacity> */}
+            {showFilePicker && (
+              <FileUploader onFileSelected={setSelectedFile} fileType="all" />
+            )}
           </View>
         )}
       </View>
@@ -219,6 +250,95 @@ const Header = ({ onBack, title }) => (
   </View>
 );
 
+const MediaDisplay = ({ mediaFile }) => {
+  const [sound, setSound] = useState();
+  const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    return sound ? () => sound.unloadAsync() : undefined;
+  }, [sound]);
+
+  if (!mediaFile) return null;
+
+  const { type, uri, name } = mediaFile;
+
+  if (type.startsWith("image/")) {
+    return (
+      <View style={styles.mediaContainer}>
+        <Image
+          source={{ uri }}
+          style={styles.mediaPreview}
+          resizeMode="contain"
+        />
+        <Text style={styles.mediaLabel}>Image</Text>
+      </View>
+    );
+  }
+
+  if (type.startsWith("video/")) {
+    return (
+      <View style={styles.mediaContainer}>
+        <Video
+          ref={videoRef}
+          source={{ uri }}
+          style={styles.mediaPreview}
+          useNativeControls
+          resizeMode="contain"
+        />
+        <Text style={styles.mediaLabel}>Video</Text>
+      </View>
+    );
+  }
+
+  if (type.startsWith("audio/")) {
+    const playSound = async () => {
+      if (sound && isPlaying) {
+        await sound.pauseAsync();
+        setIsPlaying(false);
+      } else {
+        if (sound) {
+          await sound.unloadAsync();
+        }
+        const { sound: newSound } = await Audio.Sound.createAsync({ uri });
+        setSound(newSound);
+        setIsPlaying(true);
+        await newSound.playAsync();
+
+        newSound.setOnPlaybackStatusUpdate((status) => {
+          if (status.didJustFinish) {
+            setIsPlaying(false);
+          }
+        });
+      }
+    };
+
+    return (
+      <View style={styles.mediaContainer}>
+        <TouchableOpacity onPress={playSound} style={styles.audioButton}>
+          <Ionicons
+            name={isPlaying ? "pause-circle" : "play-circle"}
+            size={40}
+            color="#FFFFFF"
+          />
+          <Text style={styles.audioText}>
+            {isPlaying ? "Pause Audio" : "Play Audio"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.mediaContainer}>
+      <TouchableOpacity style={styles.documentButton}>
+        <Ionicons name="document" size={40} color="#FFFFFF" />
+        <Text style={styles.documentText}>{name || "Document"}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const ExpandedForm = ({
   thought,
   index,
@@ -227,44 +347,130 @@ const ExpandedForm = ({
   fetchThoughts,
 }) => {
   const [subAnswerText, setSubAnswertText] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [showFilePicker, setShowFilePicker] = useState(false);
+  const [filteredAnswers, setFilteredAnswers] = useState([]);
+  const [adminAnswers, setAdminAnswers] = useState([]);
+
+  useEffect(() => {
+    if (thought?.answers) {
+      const currentTime = new Date();
+      const userId = auth.currentUser.uid;
+
+      // Separate admin answers and user answers
+      const userAnswers = [];
+      const adminAnswersTemp = [];
+
+      thought.answers.forEach((answer) => {
+        const isCurrentUserAnswer = answer.createdBy === userId;
+
+        if (isCurrentUserAnswer) {
+          // Check if within 24 hours for user answers
+          let isWithin24Hours = false;
+          if (answer.createdAt) {
+            const answerDate = new Date(answer.createdAt);
+            const timeDiff = currentTime - answerDate;
+            isWithin24Hours = timeDiff <= 86400000; // 24 hours
+          }
+
+          if (isWithin24Hours) {
+            userAnswers.push(answer);
+          }
+        } else {
+          // Admin answers are always visible to users
+          adminAnswersTemp.push(answer);
+        }
+      });
+
+      setFilteredAnswers(userAnswers);
+      setAdminAnswers(adminAnswersTemp);
+    }
+  }, [thought]);
 
   const handleAddSubThought = async () => {
-    if (subAnswerText.trim()) {
+    if (subAnswerText.trim() || selectedFile) {
       const data = {
-        answerText: subAnswerText,
+        answers: [
+          ...(thought.answers || []),
+          {
+            answerText: subAnswerText.trim(),
+            mediaFile: selectedFile,
+            createdBy: auth.currentUser.uid,
+            createdAt: new Date().toISOString(),
+          },
+        ],
       };
 
       await DataService.updateDocument(`sos-questions`, data, thought.id);
       setSubAnswertText("");
+      setSelectedFile(null);
       fetchThoughts();
     }
   };
 
+  const renderAnswer = (answer, subIndex, isAdmin = false) => (
+    <View
+      key={`${isAdmin ? "admin" : "user"}-${subIndex}`}
+      style={[styles.subThoughtItem, isAdmin && styles.adminAnswerItem]}
+    >
+      {isAdmin && (
+        <View style={styles.adminBadge}>
+          <Text style={styles.adminBadgeText}>Admin Response</Text>
+        </View>
+      )}
+      {answer.answerText && (
+        <Text style={styles.subThoughtText}>{answer.answerText}</Text>
+      )}
+      {answer.mediaFile && <MediaDisplay mediaFile={answer.mediaFile} />}
+    </View>
+  );
+
   return (
     <View style={styles.expandedContainer}>
-      {thought.answers?.map((answer, subIndex) => (
-        <View key={subIndex} style={styles.subThoughtItem}>
-          <Text style={styles.subThoughtText}>{answer.answerText || ""}</Text>
-        </View>
-      ))}
+      {/* Show admin answers first */}
+      {adminAnswers.map((answer, subIndex) =>
+        renderAnswer(answer, subIndex, true)
+      )}
 
-      <View style={styles.subThoughtInputContainer}>
-        <TextInput
-          style={styles.expandedInput}
-          placeholder="add sub answer here..."
-          placeholderTextColor="#FFFFFF80"
-          value={subAnswerText}
-          onChangeText={setSubAnswertText}
-          autoCapitalize="none"
-          selectionColor="#FFFFFF"
-        />
-        <TouchableOpacity
-          onPress={handleAddSubThought}
-          style={styles.subThoughtSendButton}
-        >
-          <Ionicons name="paper-plane-outline" size={24} color="#274472" />
-        </TouchableOpacity>
-      </View>
+      {/* Show user's own answers */}
+      {filteredAnswers.map((answer, subIndex) =>
+        renderAnswer(answer, subIndex, false)
+      )}
+
+      {/* Input section for logged-in users */}
+      {auth.currentUser?.uid && (
+        <>
+          <View style={styles.subThoughtInputContainer}>
+            <TextInput
+              style={styles.expandedInput}
+              placeholder="Add your response..."
+              placeholderTextColor="#FFFFFF80"
+              value={subAnswerText}
+              onChangeText={setSubAnswertText}
+              autoCapitalize="none"
+              selectionColor="#FFFFFF"
+              multiline
+            />
+            <Ionicons
+              onPress={() => {
+                setShowFilePicker(!showFilePicker);
+              }}
+              name="attach-outline"
+              size={24}
+              color="#274472"
+            />
+            <TouchableOpacity
+              onPress={handleAddSubThought}
+              style={styles.subThoughtSendButton}
+            >
+              <Ionicons name="paper-plane-outline" size={26} color="#274472" />
+            </TouchableOpacity>
+          </View>
+          {showFilePicker && (
+            <FileUploader onFileSelected={setSelectedFile} fileType="all" />
+          )}
+        </>
+      )}
     </View>
   );
 };
@@ -379,6 +585,24 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 8,
   },
+  adminAnswerItem: {
+    backgroundColor: "#274472",
+    borderWidth: 1,
+    borderColor: "#5885AF",
+  },
+  adminBadge: {
+    backgroundColor: "#5885AF",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+    marginBottom: 5,
+  },
+  adminBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
   subThoughtText: {
     color: "#FFFFFF",
     fontSize: 14,
@@ -399,5 +623,46 @@ const styles = StyleSheet.create({
   subThoughtSendButton: {
     marginLeft: 10,
     justifyContent: "center",
+  },
+  icebergItem: {
+    backgroundColor: "#274472",
+    borderRadius: 50,
+    padding: 12,
+    marginBottom: 10,
+  },
+  mediaContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  mediaPreview: {
+    width: "100%",
+    height: 200,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  audioButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  audioText: {
+    color: "#FFFFFF",
+    marginLeft: 10,
+  },
+  documentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  documentText: {
+    color: "#FFFFFF",
+    marginLeft: 10,
+  },
+  mediaLabel: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 8,
   },
 });

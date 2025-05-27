@@ -9,15 +9,21 @@ import {
   Alert,
   RefreshControl,
   Dimensions,
+  ScrollView,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, addDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import {
   measureFirestoreOperation,
   checkFirestoreConnection,
 } from "../utils/firebaseUtils";
+import DataService from "../services/DataService";
 
 const { width } = Dimensions.get("window");
 
@@ -30,6 +36,20 @@ const AdminDashboard = ({ navigation }) => {
     active: 0,
     new24h: 0,
   });
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedSection, setSelectedSection] = useState("");
+  const [questions, setQuestions] = useState([{ question: "", answer: "" }]);
+  const [isAddingQuestions, setIsAddingQuestions] = useState(false);
+
+  // Sections where questions can be added
+  const sections = [
+    { id: "knowledge-questions", name: "Knowledge" },
+    { id: "thoughts-questions", name: "Thoughts" },
+    { id: "sos-questions", name: "SOS" },
+    { id: "body-questions", name: "Body" },
+    { id: "feelings-questions", name: "Feelings" },
+    { id: "needs-questions", name: "Needs" },
+  ];
 
   useEffect(() => {
     fetchUsers();
@@ -196,6 +216,127 @@ const AdminDashboard = ({ navigation }) => {
     );
   };
 
+  // Add a new question input field
+  const addQuestionField = () => {
+    setQuestions([...questions, { question: "", answer: "" }]);
+  };
+
+  // Remove a question input field
+  const removeQuestionField = (index) => {
+    const updatedQuestions = questions.filter((_, i) => i !== index);
+    setQuestions(updatedQuestions);
+  };
+
+  // Handle question input change
+  const handleQuestionChange = (text, index, field) => {
+    const updatedQuestions = [...questions];
+    updatedQuestions[index][field] = text;
+    setQuestions(updatedQuestions);
+  };
+
+  // Submit all questions
+  const submitQuestions = async () => {
+    if (!selectedSection) {
+      Alert.alert("Error", "Please select a section");
+      return;
+    }
+
+    // Validate all questions
+    const invalidQuestions = questions.filter((q) => !q.question.trim());
+    if (invalidQuestions.length > 0) {
+      Alert.alert("Error", "Please fill in all question fields");
+      return;
+    }
+
+    setIsAddingQuestions(true);
+    try {
+      // Structure and requirements differ by section
+      if (
+        selectedSection === "feelings-questions" ||
+        selectedSection === "needs-questions"
+      ) {
+        await submitFeelingsOrNeedsQuestions();
+      } else {
+        // For other sections like knowledge, thoughts, sos, body
+        await submitRegularQuestions();
+      }
+
+      Alert.alert("Success", "All questions added successfully");
+      setIsModalVisible(false);
+      setQuestions([{ question: "", answer: "" }]);
+      setSelectedSection("");
+    } catch (error) {
+      console.error("Error adding questions:", error);
+      Alert.alert("Error", "Failed to add questions");
+    } finally {
+      setIsAddingQuestions(false);
+    }
+  };
+
+  // Submit questions for regular sections
+  const submitRegularQuestions = async () => {
+    for (const item of questions) {
+      const questionData = {
+        question: item.question,
+        answers: [],
+      };
+
+      // Add answer if provided
+      if (item.answer && item.answer.trim()) {
+        questionData.answers.push({
+          answerText: item.answer,
+          createdBy: auth.currentUser.uid,
+          createdAt: new Date(),
+        });
+      }
+
+      await DataService.addDocument(selectedSection, questionData);
+    }
+  };
+
+  // Submit questions for feelings or needs
+  const submitFeelingsOrNeedsQuestions = async () => {
+    for (const item of questions) {
+      const newQuestionId = Math.random().toString(36).substr(2, 20);
+
+      // Create subquestions structure required for feelings/needs
+      const subquestions = [];
+      for (let i = 1; i <= 9; i++) {
+        const subquestionId = `subquestion_${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+
+        // Generate dummy answers as required by the feelings/needs structure
+        const answers = [];
+        for (let j = 1; j <= 9; j++) {
+          answers.push({
+            id: `answer_${Math.random().toString(36).substr(2, 9)}`,
+            answerText: `${item.question} answer ${j}`,
+          });
+        }
+
+        subquestions.push({
+          subquestionText: `${item.question} subquestion ${i}`,
+          id: subquestionId,
+          questionId: newQuestionId,
+          answers,
+        });
+      }
+
+      const questionData = {
+        question: item.question,
+        questionId: newQuestionId,
+        subquestions,
+      };
+
+      await DataService.addDocument(
+        selectedSection,
+        questionData,
+        newQuestionId
+      );
+    }
+  };
+
   return (
     <LinearGradient
       colors={["#5885AF", "#5885AF"]}
@@ -206,9 +347,21 @@ const AdminDashboard = ({ navigation }) => {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>Admin Dashboard</Text>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={24} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setIsModalVisible(true)}
+            >
+              <MaterialIcons name="add-circle" size={24} color="#fff" />
+              <Text style={styles.addButtonText}>Add Questions</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
+              <Ionicons name="log-out-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.statsContainer}>
@@ -233,6 +386,129 @@ const AdminDashboard = ({ navigation }) => {
         </View>
 
         {renderContent()}
+
+        {/* Modal for adding multiple questions */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={isModalVisible}
+          onRequestClose={() => setIsModalVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Add Multiple Questions</Text>
+                <TouchableOpacity onPress={() => setIsModalVisible(false)}>
+                  <MaterialIcons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.modalScrollView}>
+                {/* Section selector */}
+                <Text style={styles.inputLabel}>Select Section:</Text>
+                <View style={styles.sectionSelector}>
+                  {sections.map((section) => (
+                    <TouchableOpacity
+                      key={section.id}
+                      style={[
+                        styles.sectionButton,
+                        selectedSection === section.id &&
+                          styles.selectedSectionButton,
+                      ]}
+                      onPress={() => setSelectedSection(section.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.sectionButtonText,
+                          selectedSection === section.id &&
+                            styles.selectedSectionText,
+                        ]}
+                      >
+                        {section.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Question inputs */}
+                <Text style={styles.inputLabel}>Questions:</Text>
+                {questions.map((questionItem, index) => (
+                  <View key={index} style={styles.questionContainer}>
+                    <View style={styles.questionHeader}>
+                      <Text style={styles.questionNumber}>
+                        Question {index + 1}
+                      </Text>
+                      {questions.length > 1 && (
+                        <TouchableOpacity
+                          onPress={() => removeQuestionField(index)}
+                        >
+                          <MaterialIcons
+                            name="delete"
+                            size={24}
+                            color="#FF5252"
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter question"
+                      value={questionItem.question}
+                      onChangeText={(text) =>
+                        handleQuestionChange(text, index, "question")
+                      }
+                    />
+
+                    {/* {selectedSection !== "feelings-questions" &&
+                      selectedSection !== "needs-questions" && (
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Enter default answer (optional)"
+                          value={questionItem.answer}
+                          onChangeText={(text) =>
+                            handleQuestionChange(text, index, "answer")
+                          }
+                        />
+                      )} */}
+                  </View>
+                ))}
+
+                {/* Add more questions button */}
+                <TouchableOpacity
+                  style={styles.addMoreButton}
+                  onPress={addQuestionField}
+                >
+                  <MaterialIcons name="add-circle" size={20} color="#2196F3" />
+                  <Text style={styles.addMoreButtonText}>
+                    Add Another Question
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Submit button */}
+                <TouchableOpacity
+                  style={[
+                    styles.submitButton,
+                    isAddingQuestions && styles.disabledButton,
+                  ]}
+                  onPress={submitQuestions}
+                  disabled={isAddingQuestions}
+                >
+                  {isAddingQuestions ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>
+                      Submit Questions
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
       </View>
     </LinearGradient>
   );
@@ -370,6 +646,116 @@ const styles = StyleSheet.create({
     color: "#fff",
     marginTop: 10,
     fontSize: 16,
+  },
+  headerButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  addButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#4CAF50",
+    padding: 10,
+    borderRadius: 5,
+    marginRight: 10,
+  },
+  addButtonText: {
+    color: "#fff",
+    marginLeft: 5,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    width: "90%",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  modalScrollView: {
+    maxHeight: "70%",
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  sectionSelector: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 20,
+  },
+  sectionButton: {
+    padding: 10,
+    borderRadius: 5,
+    backgroundColor: "#eee",
+    marginRight: 10,
+    marginBottom: 10,
+  },
+  selectedSectionButton: {
+    backgroundColor: "#2196F3",
+  },
+  sectionButtonText: {
+    color: "#333",
+  },
+  selectedSectionText: {
+    color: "#fff",
+  },
+  questionContainer: {
+    marginBottom: 20,
+  },
+  questionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  questionNumber: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 10,
+  },
+  addMoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  addMoreButtonText: {
+    color: "#2196F3",
+    marginLeft: 5,
+  },
+  submitButton: {
+    backgroundColor: "#4CAF50",
+    padding: 15,
+    borderRadius: 5,
+    alignItems: "center",
+  },
+  submitButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  disabledButton: {
+    backgroundColor: "#ccc",
   },
 });
 

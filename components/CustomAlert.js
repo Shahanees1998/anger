@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   Modal,
   View,
@@ -6,8 +6,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-} from 'react-native';
-import InputField from './InputField';
+} from "react-native";
+import InputField from "./InputField";
 
 const CustomAlert = ({
   visible,
@@ -20,8 +20,21 @@ const CustomAlert = ({
   value,
   helpQuestionAnswer,
   setHelpQuestionAnswer,
+  initialHelpData,
 }) => {
   const [dValue, setDValue] = useState(value);
+  const [helpData, setHelpData] = useState(
+    initialHelpData || {
+      question: "",
+      answer: "",
+    }
+  );
+
+  useEffect(() => {
+    if (initialHelpData) {
+      setHelpData(initialHelpData);
+    }
+  }, [initialHelpData]);
 
   return (
     <Modal
@@ -32,18 +45,20 @@ const CustomAlert = ({
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          {/* Icon */}
           {icon && (
             <View style={styles.iconWrapper}>
               <Image source={icon} style={styles.image} />
             </View>
           )}
 
-          {title && <Text style={styles.title}>{title}</Text>}
-
-          {message && <Text style={styles.message}>{message}</Text>}
-
+          {title && !helpQuestionAnswer && (
+            <Text style={styles.title}>{title}</Text>
+          )}
+          {message && !helpQuestionAnswer && (
+            <Text style={styles.message}>{message}</Text>
+          )}
           {email && <Text style={styles.email}>{email}</Text>}
+
           {value && (
             <View style={styles.container}>
               <InputField
@@ -58,47 +73,43 @@ const CustomAlert = ({
             <>
               <View style={styles.container}>
                 <InputField
-                  placeholder={`Add help Question`}
-                  value={helpQuestionAnswer.question}
-                  onChangeText={(t) => {
-                    setHelpQuestionAnswer((prev) => ({
-                      ...prev,
-                      question: t,
-                    }));
-                  }}
+                  placeholder="Enter help question"
+                  value={helpData.question}
+                  onChangeText={(text) =>
+                    setHelpData((prev) => ({ ...prev, question: text }))
+                  }
                 />
               </View>
               <View style={styles.container}>
                 <InputField
-                  placeholder={`Add help Answer`}
-                  value={helpQuestionAnswer.answer}
-                  onChangeText={(t) =>
-                    setHelpQuestionAnswer({
-                      ...helpQuestionAnswer,
-                      answer: t,
-                    })
+                  placeholder="Enter help answer"
+                  multiline={true}
+                  numberOfLines={3}
+                  value={helpData.answer}
+                  onChangeText={(text) =>
+                    setHelpData((prev) => ({ ...prev, answer: text }))
                   }
                 />
               </View>
             </>
           )}
 
-          {/* Buttons */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={styles.primaryButton}
-              onPress={() =>
-                onContinue(helpQuestionAnswer ? helpQuestionAnswer : dValue)
-              }
+              onPress={() => onContinue(helpQuestionAnswer ? helpData : dValue)}
             >
-              <Text style={styles.buttonText}>Continue</Text>
+              <Text style={styles.buttonText}>
+                {helpQuestionAnswer
+                  ? initialHelpData
+                    ? "Update"
+                    : "Save"
+                  : "Continue"}
+              </Text>
             </TouchableOpacity>
-            {/* <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={onClose}
-            >
-              <Text style={styles.secondarybuttonText}>Cancel</Text>
-            </TouchableOpacity> */}
+            <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
+              <Text style={styles.secondaryButtonText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -109,16 +120,16 @@ const CustomAlert = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    width: '80%',
-    backgroundColor: '#fff',
+    width: "80%",
+    backgroundColor: "#fff",
     borderRadius: 10,
     padding: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   iconWrapper: {
     marginBottom: 10,
@@ -129,50 +140,50 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: 'Normal',
+    fontWeight: "Normal",
     marginBottom: 10,
   },
   message: {
     fontSize: 12,
-    color: '#555',
-    textAlign: 'center',
+    color: "#555",
+    textAlign: "center",
     marginBottom: 10,
   },
   email: {
     fontSize: 14,
-    color: '#007BFF',
+    color: "#007BFF",
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
   buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: '#274472',
+    backgroundColor: "#274472",
     padding: 10,
     borderRadius: 10,
     marginRight: 5,
-    alignItems: 'center',
+    alignItems: "center",
   },
   secondaryButton: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 10,
     borderRadius: 10,
     marginLeft: 5,
-    alignItems: 'center',
+    alignItems: "center",
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
   },
-  secondarybuttonText: {
-    color: '#000',
+  secondaryButtonText: {
+    color: "#000",
   },
   container: {
-    width: '100%',
+    width: "100%",
   },
 });
 

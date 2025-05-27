@@ -10,27 +10,74 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { auth } from "@/firebase";
+import DataService from "@/services/DataService";
 
 const SOSHome = ({ navigation }) => {
   const [text, setText] = useState("");
   const [answers, setAnswers] = useState([]);
   const [likedIndexes, setLikedIndexes] = useState(new Set());
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const fetchAnswers = async () => {
       try {
+        const user = auth.currentUser;
+        const userId = user?.uid;
+        let isUserAdmin = false;
+
+        if (userId) {
+          const userData = await DataService.getUserData(userId).catch(
+            console.error
+          );
+          isUserAdmin = userData?.isAdmin;
+          setIsAdmin(isUserAdmin);
+        }
+
         const storedAnswers = await AsyncStorage.getItem("answers");
         if (storedAnswers) {
-          setAnswers(JSON.parse(storedAnswers));
+          // Parse the stored answers
+          let parsedAnswers = JSON.parse(storedAnswers);
+
+          if (isUserAdmin) {
+            // For admin, remove "My Iceberg" completely
+            parsedAnswers = parsedAnswers.filter(
+              (item) => item !== "Iceberg" && item !== "My Iceberg"
+            );
+          } else {
+            // For regular users, remove any existing "My Iceberg" entries
+            parsedAnswers = parsedAnswers.filter(
+              (item) => item !== "Iceberg" && item !== "My Iceberg"
+            );
+
+            // Add "My Iceberg" as the LAST item
+            parsedAnswers.push("My Iceberg");
+          }
+
+          setAnswers(parsedAnswers);
+          await AsyncStorage.setItem("answers", JSON.stringify(parsedAnswers));
         } else {
-          const defaultAnswers = [
-            "Method 1",
-            "Method 2",
-            "Method 3",
-            "Method 4",
-            "Method 5",
-            "Iceberg",
-          ];
+          // Set default answers based on user role
+          let defaultAnswers;
+          if (isUserAdmin) {
+            defaultAnswers = [
+              "Method 1",
+              "Method 2",
+              "Method 3",
+              "Method 4",
+              "Method 5",
+            ];
+          } else {
+            defaultAnswers = [
+              "Method 1",
+              "Method 2",
+              "Method 3",
+              "Method 4",
+              "Method 5",
+              "My Iceberg", // Last item for users
+            ];
+          }
+
           setAnswers(defaultAnswers);
           await AsyncStorage.setItem("answers", JSON.stringify(defaultAnswers));
         }
@@ -77,10 +124,10 @@ const SOSHome = ({ navigation }) => {
   };
 
   const handlePressItem = (item) => {
-    if (item === "Iceberg") {
-      navigation.navigate("Iceberg"); 
+    if (item === "My Iceberg") {
+      navigation.navigate("Iceberg");
     } else {
-      navigation.navigate("Ready", { item }); 
+      navigation.navigate("Ready", { item });
     }
   };
 
@@ -92,28 +139,27 @@ const SOSHome = ({ navigation }) => {
           data={answers}
           keyExtractor={(item, index) => index.toString()}
           renderItem={({ item, index }) => (
-           
             <View style={styles.listItem}>
               <View style={styles.itemContent}>
                 <View style={styles.itemNumber}>
                   <Text style={styles.itemNumberText}>{index + 1}</Text>
                 </View>
                 <Text style={styles.itemText}>{item}</Text>
-                <TouchableOpacity onPress={() => toggleLike(index)} style={{marginRight:10}}>
+                <TouchableOpacity
+                  onPress={() => toggleLike(index)}
+                  style={{ marginRight: 10 }}
+                >
                   <Ionicons
-                    name={
-                      likedIndexes.has(index) ? "heart" : "heart-outline"
-                    }
+                    name={likedIndexes.has(index) ? "heart" : "heart-outline"}
                     size={24}
                     color="#FFF"
                   />
-                  </TouchableOpacity>
+                </TouchableOpacity>
                 <TouchableOpacity onPress={() => handlePressItem(item)}>
                   <Ionicons name="chevron-down" size={24} color="#FFF" />
                 </TouchableOpacity>
               </View>
             </View>
-          
           )}
         />
       </View>

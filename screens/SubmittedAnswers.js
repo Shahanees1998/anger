@@ -14,6 +14,7 @@ import { Ionicons, MaterialCommunityIcons, Octicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DataService from "@/services/DataService";
 import { useFocusEffect } from "@react-navigation/native";
+import { auth } from "@/firebase";
 
 const SubmittedAnswers = ({ navigation, route }) => {
   const [text, setText] = useState("");
@@ -22,9 +23,31 @@ const SubmittedAnswers = ({ navigation, route }) => {
   const [likedItems, setLikedItems] = useState([]);
   const [dislikedItems, setDislikedItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Get the source of navigation from route params
   const showInput = route.params?.fromIceberg || false;
+
+  const checkAuth = async () => {
+    try {
+      const user = auth.currentUser;
+
+      if (!user) {
+        navigation.replace("SignIn");
+      }
+
+      const userId = user?.uid;
+      if (userId) {
+        const userData = await DataService.getUserData(userId).catch(
+          console.error
+        );
+        setIsAdmin(userData?.isAdmin);
+      }
+    } catch (error) {
+      console.error("Auth check failed:", error);
+      navigation.replace("SignIn");
+    }
+  };
 
   // Modify the useEffect to only save new answers, not override initial dummy data
 
@@ -43,6 +66,7 @@ const SubmittedAnswers = ({ navigation, route }) => {
         }
       };
       loadAnswers();
+      checkAuth();
 
       return () => {};
     }, [])
@@ -60,6 +84,7 @@ const SubmittedAnswers = ({ navigation, route }) => {
   };
 
   const toggleExpand = (index) => {
+    if (isAdmin) return;
     setExpandedIndex(index === expandedIndex ? null : index);
   };
 
