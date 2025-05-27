@@ -309,34 +309,12 @@ const ExpandedForm = ({
   useEffect(() => {
     // Filter answers based on user ID and time
     if (thought?.answers) {
-      const currentTime = new Date();
       const userId = auth.currentUser.uid;
-
-      // Filter to only show answers:
-      // 1. Created by the current user
-      // 2. Created within the last 24 hours
-      const filtered = thought.answers.filter((answer) => {
-        // Check if the answer belongs to the current user
-        const isCurrentUserAnswer = answer.createdBy === userId;
-
-        // Check if the answer was created within the last 24 hours
-        let isWithin24Hours = false;
-        if (answer.createdAt) {
-          const answerDate =
-            answer.createdAt instanceof Date
-              ? answer.createdAt
-              : new Date(answer.createdAt);
-
-          // Calculate time difference in milliseconds
-          const timeDiff = currentTime - answerDate;
-          // 24 hours = 86400000 milliseconds
-          isWithin24Hours = timeDiff <= 86400000;
-        }
-
-        return isCurrentUserAnswer && isWithin24Hours;
+      
+      // Use the centralized filtering method
+      DataService.filterAnswersForUser(thought.answers, userId).then((filtered) => {
+        setFilteredAnswers(filtered);
       });
-
-      setFilteredAnswers(filtered);
     }
   }, [thought]);
 

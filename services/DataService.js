@@ -184,12 +184,15 @@ class DataService {
 
     try {
       if (await this.isOnline()) {
+        // Allow empty strings but ensure data is defined
+        const questionData = data !== undefined ? data : "";
         await updateDoc(docRef, {
-          question: data,
+          question: questionData,
         });
       }
     } catch (error) {
-      console.error("Error adding document:", error);
+      console.error("Error updating document:", error);
+      throw error;
     }
   }
 
@@ -265,6 +268,52 @@ class DataService {
       console.error("Error getting user data:", error);
       return null;
     }
+  }
+
+  // Check if a user is admin
+  static async isUserAdmin(userId) {
+    try {
+      const userData = await this.getUserData(userId);
+      return userData?.isAdmin === true;
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+      return false;
+    }
+  }
+
+  // Filter answers based on user and time constraints
+  static async filterAnswersForUser(answers, currentUserId) {
+    if (!answers || !Array.isArray(answers)) return [];
+    
+    const currentTime = new Date();
+    const filteredAnswers = [];
+    
+    for (const answer of answers) {
+      // Check if answer creator is admin
+      const isAdminAnswer = await this.isUserAdmin(answer.createdBy);
+      
+      if (isAdminAnswer) {
+        // Admin answers are always visible
+        filteredAnswers.push({ ...answer, isAdminAnswer: true });
+      } else if (answer.createdBy === currentUserId) {
+        // For user's own answers, check 24-hour limit
+        let isWithin24Hours = false;
+        if (answer.createdAt) {
+          const answerDate = answer.createdAt instanceof Date 
+            ? answer.createdAt 
+            : new Date(answer.createdAt);
+          const timeDiff = currentTime - answerDate;
+          isWithin24Hours = timeDiff <= 86400000; // 24 hours in milliseconds
+        }
+        
+        if (isWithin24Hours) {
+          filteredAnswers.push({ ...answer, isAdminAnswer: false });
+        }
+      }
+      // Other users' answers are not shown
+    }
+    
+    return filteredAnswers;
   }
 
   // Save user auth state
@@ -988,15 +1037,7 @@ class DataService {
           // Add new third level item with empty answers array
           const thirdLevelItem = {
             ...newThirdLevel,
-            answers: Array(9)
-              .fill({})
-              .map((_, i) => ({
-                id: `answer_${Math.random().toString(36).substr(2, 20)}`,
-                answerText: "",
-                order: i + 1,
-                createdBy: auth.currentUser.uid,
-                createdAt: new Date(),
-              })),
+            answers: [], // Start with empty answers array instead of 9 dummy answers
           };
 
           subquestions[subIndex].thirdLevel.push(thirdLevelItem);

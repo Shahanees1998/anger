@@ -303,6 +303,17 @@ const ExpandedForm = ({
   isAdmin,
 }) => {
   const [subAnswerText, setSubAnswertText] = useState("");
+  const [filteredAnswers, setFilteredAnswers] = useState([]);
+
+  useEffect(() => {
+    // Filter answers when body data changes
+    if (body?.answers) {
+      const userId = auth.currentUser.uid;
+      DataService.filterAnswersForUser(body.answers, userId).then((filtered) => {
+        setFilteredAnswers(filtered);
+      });
+    }
+  }, [body]);
 
   const handleAddSubThought = async () => {
     if (subAnswerText.trim()) {
@@ -318,9 +329,12 @@ const ExpandedForm = ({
 
   return (
     <View style={styles.expandedContainer}>
-      {body?.answers?.map((ele, subIndex) => (
+      {filteredAnswers.map((ele, subIndex) => (
         <View key={subIndex}>
-          <Text style={styles.expandedText}>{ele.answerText}</Text>
+          <Text style={styles.expandedText}>
+            {ele.isAdminAnswer && <Text style={styles.adminBadge}>Admin Response: </Text>}
+            {ele.answerText}
+          </Text>
           <View style={styles.helpfulSection}>
             <View style={styles.likeDislike}>
               <Text style={{ color: "#F2FAFF" }}>Helpful?</Text>
@@ -530,5 +544,9 @@ const styles = StyleSheet.create({
   subThoughtSendButton: {
     marginLeft: 10,
     justifyContent: "center",
+  },
+  adminBadge: {
+    color: "#FFD700",
+    fontWeight: "bold",
   },
 });

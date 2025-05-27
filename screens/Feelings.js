@@ -34,6 +34,7 @@ const Feelings = ({ navigation }) => {
   const [thirdLevelSelected, setThirdLevelSelected] = useState(false);
   const [thirdLevelInput, setThirdLevelInput] = useState("");
   const [editingThirdLevel, setEditingThirdLevel] = useState(null);
+  const [thirdLevelAnswer, setThirdLevelAnswer] = useState("");
 
   const loadKnowledge = async () => {
     try {
@@ -91,53 +92,18 @@ const Feelings = ({ navigation }) => {
     subquestionId,
     thirdLevelId = null
   ) => {
-    const dummyAnswers = [];
-    for (let i = 1; i <= 9; i++) {
-      dummyAnswers.push({
-        questionId,
-        subquestionId,
-        thirdLevelId,
-        answerText: "",
-        id: `answer_${Math.random().toString(36).substr(2, 20)}`,
-        createdBy: auth.currentUser.uid,
-        order: i,
-      });
-    }
-    return dummyAnswers;
+    // Return empty array instead of dummy answers
+    return [];
   };
 
   const generateThirdLevelItems = (questionId, subquestionId) => {
-    const thirdLevel = [];
-    // Ensure exactly 9 items
-    for (let i = 1; i <= 9; i++) {
-      const thirdLevelId = `third_${Math.random().toString(36).substr(2, 20)}`;
-      thirdLevel.push({
-        text: `Sub-item ${i}`,
-        id: thirdLevelId,
-        questionId,
-        subquestionId,
-        answers: generateDummyAnswers(questionId, subquestionId, thirdLevelId),
-      });
-    }
-    return thirdLevel;
+    // Return empty array instead of dummy items
+    return [];
   };
 
   const generateSubQuestions = (questionId) => {
-    const subquestions = [];
-    // Ensure exactly 9 items
-    for (let i = 1; i <= 9; i++) {
-      const subquestionId = `subquestion_${Math.random()
-        .toString(36)
-        .substr(2, 20)}`;
-      subquestions.push({
-        subquestionText: `Item ${i}`,
-        id: subquestionId,
-        questionId,
-        thirdLevel: generateThirdLevelItems(questionId, subquestionId),
-        answers: generateDummyAnswers(questionId, subquestionId),
-      });
-    }
-    return subquestions;
+    // Return empty array instead of dummy subquestions
+    return [];
   };
 
   const addQuestion = async () => {
@@ -192,49 +158,34 @@ const Feelings = ({ navigation }) => {
   };
 
   const getAnswers = (item) => {
+    // Check if this item has third-level items
+    if (item.thirdLevel && item.thirdLevel.length > 0) {
+      // Navigate to third level view
+      setThirdLevelItems(item.thirdLevel);
+      setThirdLevelSelected(true);
+      setSelectedCardId(null);
+      return;
+    }
+
+    // Check if there are answers available
     if (!item.answers || item.answers.length === 0) {
       Alert.alert("Error", "No answers available for this item");
       return;
     }
 
-    if (item.thirdLevel) {
-      setThirdLevelItems(item.thirdLevel);
-      setThirdLevelSelected(true);
-    } else {
-      // Filter answers to only show:
-      // 1. Those that have content
-      // 2. Those created by the current user
-      // 3. Those created within the last 24 hours
-      const currentTime = new Date();
-      const userId = auth.currentUser.uid;
-
-      const filteredAnswers = item.answers.filter((answer) => {
-        // Check if the answer has content
-        const hasContent = answer.answerText.trim() !== "";
-
-        // Check if the answer belongs to the current user
-        const isCurrentUserAnswer = answer.createdBy === userId;
-
-        // Check if the answer was created within the last 24 hours
-        let isWithin24Hours = true; // Default to true if no creation date
-        if (answer.createdAt) {
-          const answerDate =
-            answer.createdAt instanceof Date
-              ? answer.createdAt
-              : new Date(answer.createdAt);
-
-          // Calculate time difference in milliseconds
-          const timeDiff = currentTime - answerDate;
-          // 24 hours = 86400000 milliseconds
-          isWithin24Hours = timeDiff <= 86400000;
-        }
-
-        return hasContent && isCurrentUserAnswer && isWithin24Hours;
-      });
-
-      setSubAnswers(filteredAnswers);
-      setSelectedCardId(item.id);
-    }
+    // Filter answers using the centralized filtering logic
+    const userId = auth.currentUser.uid;
+    
+    // Use the new filtering method that properly handles admin answers
+    DataService.filterAnswersForUser(item.answers, userId).then((filteredAnswers) => {
+      // Additionally filter out empty answers
+      const nonEmptyAnswers = filteredAnswers.filter(
+        (answer) => answer.answerText && answer.answerText.trim() !== ""
+      );
+      setSubAnswers(nonEmptyAnswers);
+    });
+    
+    setSelectedCardId(item.id);
   };
 
   const handleBackFromThirdLevel = () => {
@@ -253,7 +204,7 @@ const Feelings = ({ navigation }) => {
       id: `third_${Math.random().toString(36).substr(2, 20)}`,
       questionId,
       subquestionId,
-      answers: generateDummyAnswers(questionId, subquestionId),
+      answers: [], // Start with empty answers array
     };
 
     try {
@@ -270,6 +221,53 @@ const Feelings = ({ navigation }) => {
       console.error("Error adding third level item:", error);
       Alert.alert("Error", "Failed to add third level item");
     }
+  };
+
+  const renderThirdLevelCard = ({ item }) => {
+    const hasAnswers = item.answers && item.answers.some((a) => a.answerText && a.answerText.trim() !== "");
+    const isSelected = selectedCardId === item.id;
+
+    return (
+      <View
+        style={[
+          styles.card,
+          isSelected && styles.selectedCard,
+          !hasAnswers && !isAdmin && styles.disabledCard,
+        ]}
+      >
+        {!isAdmin && (
+          <TouchableOpacity
+            style={[styles.circle, !hasAnswers && styles.disabledCircle]}
+            onPress={() => {
+              if (hasAnswers) {
+                getAnswers(item);
+              } else {
+                Alert.alert("Info", "No content available for this item yet");
+              }
+            }}
+            disabled={!hasAnswers}
+          >
+            <Ionicons
+              name="arrow-forward"
+              size={24}
+              color="#274472"
+            />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          onPress={() => {
+            if (isAdmin) {
+              // Toggle selection for admin to add answers
+              setSelectedCardId(isSelected ? null : item.id);
+            }
+          }}
+        >
+          <Text style={[styles.cardText, isSelected && styles.adminSelectedText]}>
+            {item.text}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   const renderFeelingsCard = ({ item }) => {
@@ -422,11 +420,73 @@ const Feelings = ({ navigation }) => {
         {loading ? (
           <ActivityIndicator size="large" color="white" />
         ) : (
+          <>
+          {thirdLevelSelected ? (
+            <>
+            <FlatList
+              data={selectedCardId ? subAnswers : thirdLevelItems}
+              keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
+              renderItem={
+                selectedCardId
+                  ? renderRadioButtonCard
+                  : renderThirdLevelCard
+              }
+              numColumns={3}
+              contentContainerStyle={styles.grid}
+              columnWrapperStyle={styles.columnWrapper}
+            />
+            {isAdmin && selectedCardId && (
+              <View style={styles.bottomContainer}>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Add answer to third-level item..."
+                    placeholderTextColor="#FFFFFF"
+                    value={thirdLevelAnswer}
+                    onChangeText={setThirdLevelAnswer}
+                  />
+                  <TouchableOpacity 
+                    onPress={async () => {
+                      if (thirdLevelAnswer.trim()) {
+                        // Find the selected third-level item
+                        const selectedItem = thirdLevelItems.find(item => item.id === selectedCardId);
+                        if (selectedItem) {
+                          try {
+                            await DataService.updateThirdLevelAnswer(
+                              "feelings-questions",
+                              selectedItem.questionId,
+                              selectedItem.subquestionId,
+                              selectedItem.id,
+                              `answer_${Math.random().toString(36).substr(2, 20)}`,
+                              thirdLevelAnswer.trim()
+                            );
+                            setThirdLevelAnswer("");
+                            loadKnowledge();
+                            Alert.alert("Success", "Answer added to third-level item");
+                          } catch (error) {
+                            Alert.alert("Error", "Failed to add answer");
+                          }
+                        }
+                      }
+                    }} 
+                    style={styles.sendButton}
+                  >
+                    <Ionicons name="paper-plane-outline" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+            </>
+          ) : (
           <FlatList
-            data={thirdLevelSelected ? thirdLevelItems : knowledge}
+            data={knowledge}
             keyExtractor={(item, index) => index.toString()}
             renderItem={({ item, index }) => {
-              const squesutions = item.subquestions;
+              // Filter out empty subquestions
+              const squesutions = item.subquestions?.filter(sq => 
+                sq.subquestionText && sq.subquestionText.trim() !== "" &&
+                !sq.subquestionText.includes("Item ")
+              ) || [];
               return (
                 <>
                   <TouchableOpacity onPress={() => toggleExpand(index)}>
@@ -493,6 +553,8 @@ const Feelings = ({ navigation }) => {
               );
             }}
           />
+          )}
+          </>
         )}
         {isAdmin && knowledge.length == 0 && (
           <View style={styles.bottomContainer}>

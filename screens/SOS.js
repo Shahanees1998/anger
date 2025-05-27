@@ -354,36 +354,17 @@ const ExpandedForm = ({
 
   useEffect(() => {
     if (thought?.answers) {
-      const currentTime = new Date();
       const userId = auth.currentUser.uid;
-
-      // Separate admin answers and user answers
-      const userAnswers = [];
-      const adminAnswersTemp = [];
-
-      thought.answers.forEach((answer) => {
-        const isCurrentUserAnswer = answer.createdBy === userId;
-
-        if (isCurrentUserAnswer) {
-          // Check if within 24 hours for user answers
-          let isWithin24Hours = false;
-          if (answer.createdAt) {
-            const answerDate = new Date(answer.createdAt);
-            const timeDiff = currentTime - answerDate;
-            isWithin24Hours = timeDiff <= 86400000; // 24 hours
-          }
-
-          if (isWithin24Hours) {
-            userAnswers.push(answer);
-          }
-        } else {
-          // Admin answers are always visible to users
-          adminAnswersTemp.push(answer);
-        }
+      
+      // Use the centralized filtering method
+      DataService.filterAnswersForUser(thought.answers, userId).then((filtered) => {
+        // Separate admin and user answers
+        const adminAnswersTemp = filtered.filter(answer => answer.isAdminAnswer);
+        const userAnswers = filtered.filter(answer => !answer.isAdminAnswer);
+        
+        setFilteredAnswers(userAnswers);
+        setAdminAnswers(adminAnswersTemp);
       });
-
-      setFilteredAnswers(userAnswers);
-      setAdminAnswers(adminAnswersTemp);
     }
   }, [thought]);
 
