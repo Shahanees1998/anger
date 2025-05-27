@@ -299,8 +299,8 @@ class DataService {
         const querySnapshot = await getDocs(collection(db, collectionPath));
         const documents = querySnapshot.docs.map((doc) => {
           const data = doc.data();
-          const currentDate = new Date().toDateString();
           const user = auth.currentUser;
+          const currentTime = new Date();
 
           // For thoughts-questions, filter answers based on user type
           if (collectionPath === "thoughts-questions") {
@@ -316,12 +316,24 @@ class DataService {
             };
           }
 
-          // For other collections, filter answers by current day for current user
+          // For other collections, filter answers by 24 hours for current user
           const filteredAnswers = data?.answers?.filter((answer) => {
-            const answerDate = new Date(
-              answer?.createdAt?.seconds * 1000
-            ).toDateString();
-            return answer.createdBy === user?.uid && answerDate === currentDate;
+            const isCurrentUserAnswer = answer.createdBy === user?.uid;
+
+            // Check if the answer was created within the last 24 hours
+            let isWithin24Hours = false;
+            if (answer.createdAt) {
+              const answerDate = new Date(
+                answer?.createdAt?.seconds
+                  ? answer.createdAt.seconds * 1000
+                  : answer.createdAt
+              );
+              const timeDiff = currentTime - answerDate;
+              // 24 hours = 86400000 milliseconds
+              isWithin24Hours = timeDiff <= 86400000;
+            }
+
+            return isCurrentUserAnswer && isWithin24Hours;
           });
 
           return {
@@ -348,19 +360,28 @@ class DataService {
         const querySnapshot = await getDocs(collection(db, collectionPath));
         const documents = querySnapshot.docs.map((doc) => {
           const data = doc.data();
-          const currentDate = new Date().toDateString();
           const user = auth.currentUser;
+          const currentTime = new Date();
 
-          // For non-admin users, filter answers by current date
+          // For non-admin users, filter answers by 24 hours
           if (!data.isAdmin && user) {
             const filteredSubquestions = data.subquestions.map(
               (subquestion) => {
-                // Only return answers for the current date and current user
-                const filteredAnswers = subquestion.answers.filter(
-                  (answer) =>
-                    answer.createdBy === user.uid &&
-                    new Date(answer.createdAt).toDateString() === currentDate
-                );
+                // Only return answers within the last 24 hours for current user
+                const filteredAnswers = subquestion.answers.filter((answer) => {
+                  const isCurrentUserAnswer = answer.createdBy === user.uid;
+
+                  // Check if the answer was created within the last 24 hours
+                  let isWithin24Hours = false;
+                  if (answer.createdAt) {
+                    const answerDate = new Date(answer.createdAt);
+                    const timeDiff = currentTime - answerDate;
+                    // 24 hours = 86400000 milliseconds
+                    isWithin24Hours = timeDiff <= 86400000;
+                  }
+
+                  return isCurrentUserAnswer && isWithin24Hours;
+                });
                 return {
                   ...subquestion,
                   answers: filteredAnswers,
@@ -385,7 +406,7 @@ class DataService {
       }
       return [];
     } catch (error) {
-      console.error("Error getting collection:", error);
+      console.error("Error getting feeling/needs questions:", error);
       return [];
     }
   }
@@ -569,6 +590,7 @@ class DataService {
     ];
 
     const allDocuments = [];
+    const currentTime = new Date();
 
     for (let collectionName of collections) {
       const q = query(collection(db, collectionName));
@@ -578,15 +600,21 @@ class DataService {
         const data = doc.data();
 
         // Filter answers where the 'createdBy' matches the current user's UID
-        const filteredAnswers = data.answers.filter(
-          (answer) => answer.createdBy === currentUserUid
-        );
+        // AND created within the last 24 hours
+        const filteredAnswers = data.answers.filter((answer) => {
+          const isCurrentUserAnswer = answer.createdBy === currentUserUid;
 
-        // console.log(
-        //   filteredAnswers.length,
-        //   collectionName,
-        //   "all filtered answers length"
-        // );
+          // Check if the answer was created within the last 24 hours
+          let isWithin24Hours = false;
+          if (answer.createdAt) {
+            const answerDate = new Date(answer.createdAt);
+            const timeDiff = currentTime - answerDate;
+            // 24 hours = 86400000 milliseconds
+            isWithin24Hours = timeDiff <= 86400000;
+          }
+
+          return isCurrentUserAnswer && isWithin24Hours;
+        });
 
         // If there are any matching answers, add the document to the results
         if (filteredAnswers.length > 0) {
@@ -594,7 +622,7 @@ class DataService {
             ...data, // The original document data
             id: doc.id, // Document ID
             collection: collectionName, // The collection name for reference
-            answers: filteredAnswers, // Only the answers that belong to the current user
+            answers: filteredAnswers, // Only the answers that belong to the current user and within 24h
           });
         }
       });

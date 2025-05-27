@@ -45,13 +45,13 @@ const SOSHome = ({ navigation }) => {
               (item) => item !== "Iceberg" && item !== "My Iceberg"
             );
           } else {
-            // For regular users, make "My Iceberg" the first method
+            // For regular users, remove any existing "My Iceberg" entries
             parsedAnswers = parsedAnswers.filter(
               (item) => item !== "Iceberg" && item !== "My Iceberg"
             );
 
-            // Add "My Iceberg" as the first item
-            parsedAnswers.unshift("My Iceberg");
+            // Add "My Iceberg" as the LAST item
+            parsedAnswers.push("My Iceberg");
           }
 
           setAnswers(parsedAnswers);
@@ -69,12 +69,12 @@ const SOSHome = ({ navigation }) => {
             ];
           } else {
             defaultAnswers = [
-              "My Iceberg",
               "Method 1",
               "Method 2",
               "Method 3",
               "Method 4",
               "Method 5",
+              "My Iceberg", // Last item for users
             ];
           }
 

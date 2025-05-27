@@ -136,29 +136,28 @@ const SOS = ({ navigation }) => {
                     <Text style={styles.itemNumberText}>{index + 1}</Text>
                   </View>
                   <Text style={styles.itemText}>{item.question}</Text>
-                  <TouchableOpacity
-                    onPress={() => toggleLike(index)}
-                    style={{ marginRight: 10 }}
-                  >
-                    <Ionicons
-                      name={likedIndexes.has(index) ? "heart" : "heart-outline"}
-                      size={24}
-                      color="#FFF"
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => toggleExpand(index)}
-                    // onPress={() => navigation.navigate("Ready", { item })}
-                  >
+                  {!isAdmin && (
+                    <TouchableOpacity
+                      onPress={() => toggleLike(index)}
+                      style={{ marginRight: 10 }}
+                    >
+                      <Ionicons
+                        name={
+                          likedIndexes.has(index) ? "heart" : "heart-outline"
+                        }
+                        size={24}
+                        color="#FFF"
+                      />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => toggleExpand(index)}>
                     <Ionicons
                       name={
-                        expandedIndex === index
-                          ? "chevron-forward"
-                          : "chevron-down"
+                        expandedIndex === index ? "chevron-up" : "chevron-down"
                       }
                       size={24}
                       color="#FFF"
-                    />{" "}
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -253,6 +252,7 @@ const Header = ({ onBack, title }) => (
 
 const MediaDisplay = ({ mediaFile }) => {
   const [sound, setSound] = useState();
+  const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef(null);
 
   useEffect(() => {
@@ -261,53 +261,81 @@ const MediaDisplay = ({ mediaFile }) => {
 
   if (!mediaFile) return null;
 
-  const { type, uri } = mediaFile;
+  const { type, uri, name } = mediaFile;
 
   if (type.startsWith("image/")) {
     return (
-      <Image
-        source={{ uri }}
-        style={styles.mediaPreview}
-        resizeMode="contain"
-      />
+      <View style={styles.mediaContainer}>
+        <Image
+          source={{ uri }}
+          style={styles.mediaPreview}
+          resizeMode="contain"
+        />
+        <Text style={styles.mediaLabel}>Image</Text>
+      </View>
     );
   }
 
   if (type.startsWith("video/")) {
     return (
-      <Video
-        ref={videoRef}
-        source={{ uri }}
-        style={styles.mediaPreview}
-        useNativeControls
-        resizeMode="contain"
-      />
+      <View style={styles.mediaContainer}>
+        <Video
+          ref={videoRef}
+          source={{ uri }}
+          style={styles.mediaPreview}
+          useNativeControls
+          resizeMode="contain"
+        />
+        <Text style={styles.mediaLabel}>Video</Text>
+      </View>
     );
   }
 
   if (type.startsWith("audio/")) {
     const playSound = async () => {
-      if (sound) {
-        await sound.unloadAsync();
+      if (sound && isPlaying) {
+        await sound.pauseAsync();
+        setIsPlaying(false);
+      } else {
+        if (sound) {
+          await sound.unloadAsync();
+        }
+        const { sound: newSound } = await Audio.Sound.createAsync({ uri });
+        setSound(newSound);
+        setIsPlaying(true);
+        await newSound.playAsync();
+
+        newSound.setOnPlaybackStatusUpdate((status) => {
+          if (status.didJustFinish) {
+            setIsPlaying(false);
+          }
+        });
       }
-      const { sound: newSound } = await Audio.Sound.createAsync({ uri });
-      setSound(newSound);
-      await newSound.playAsync();
     };
 
     return (
-      <TouchableOpacity onPress={playSound} style={styles.audioButton}>
-        <Ionicons name="play-circle" size={40} color="#FFFFFF" />
-        <Text style={styles.audioText}>Play Audio</Text>
-      </TouchableOpacity>
+      <View style={styles.mediaContainer}>
+        <TouchableOpacity onPress={playSound} style={styles.audioButton}>
+          <Ionicons
+            name={isPlaying ? "pause-circle" : "play-circle"}
+            size={40}
+            color="#FFFFFF"
+          />
+          <Text style={styles.audioText}>
+            {isPlaying ? "Pause Audio" : "Play Audio"}
+          </Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
   return (
-    <TouchableOpacity style={styles.documentButton}>
-      <Ionicons name="document" size={40} color="#FFFFFF" />
-      <Text style={styles.documentText}>{mediaFile.name}</Text>
-    </TouchableOpacity>
+    <View style={styles.mediaContainer}>
+      <TouchableOpacity style={styles.documentButton}>
+        <Ionicons name="document" size={40} color="#FFFFFF" />
+        <Text style={styles.documentText}>{name || "Document"}</Text>
+      </TouchableOpacity>
+    </View>
   );
 };
 
@@ -322,35 +350,40 @@ const ExpandedForm = ({
   const [selectedFile, setSelectedFile] = useState(null);
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [filteredAnswers, setFilteredAnswers] = useState([]);
+  const [adminAnswers, setAdminAnswers] = useState([]);
 
   useEffect(() => {
-    // Filter answers based on user ID and time
     if (thought?.answers) {
       const currentTime = new Date();
       const userId = auth.currentUser.uid;
 
-      // Filter to only show answers:
-      // 1. Created by the current user
-      // 2. Created within the last 24 hours
-      const filtered = thought.answers.filter((answer) => {
-        // Check if the answer belongs to the current user
+      // Separate admin answers and user answers
+      const userAnswers = [];
+      const adminAnswersTemp = [];
+
+      thought.answers.forEach((answer) => {
         const isCurrentUserAnswer = answer.createdBy === userId;
 
-        // Check if the answer was created within the last 24 hours
-        let isWithin24Hours = false;
-        if (answer.createdAt) {
-          const answerDate = new Date(answer.createdAt);
+        if (isCurrentUserAnswer) {
+          // Check if within 24 hours for user answers
+          let isWithin24Hours = false;
+          if (answer.createdAt) {
+            const answerDate = new Date(answer.createdAt);
+            const timeDiff = currentTime - answerDate;
+            isWithin24Hours = timeDiff <= 86400000; // 24 hours
+          }
 
-          // Calculate time difference in milliseconds
-          const timeDiff = currentTime - answerDate;
-          // 24 hours = 86400000 milliseconds
-          isWithin24Hours = timeDiff <= 86400000;
+          if (isWithin24Hours) {
+            userAnswers.push(answer);
+          }
+        } else {
+          // Admin answers are always visible to users
+          adminAnswersTemp.push(answer);
         }
-
-        return isCurrentUserAnswer && isWithin24Hours;
       });
 
-      setFilteredAnswers(filtered);
+      setFilteredAnswers(userAnswers);
+      setAdminAnswers(adminAnswersTemp);
     }
   }, [thought]);
 
@@ -375,23 +408,42 @@ const ExpandedForm = ({
     }
   };
 
+  const renderAnswer = (answer, subIndex, isAdmin = false) => (
+    <View
+      key={`${isAdmin ? "admin" : "user"}-${subIndex}`}
+      style={[styles.subThoughtItem, isAdmin && styles.adminAnswerItem]}
+    >
+      {isAdmin && (
+        <View style={styles.adminBadge}>
+          <Text style={styles.adminBadgeText}>Admin Response</Text>
+        </View>
+      )}
+      {answer.answerText && (
+        <Text style={styles.subThoughtText}>{answer.answerText}</Text>
+      )}
+      {answer.mediaFile && <MediaDisplay mediaFile={answer.mediaFile} />}
+    </View>
+  );
+
   return (
     <View style={styles.expandedContainer}>
-      {filteredAnswers.map((answer, subIndex) => (
-        <View key={subIndex} style={styles.subThoughtItem}>
-          {answer.answerText && (
-            <Text style={styles.subThoughtText}>{answer.answerText}</Text>
-          )}
-          {answer.mediaFile && <MediaDisplay mediaFile={answer.mediaFile} />}
-        </View>
-      ))}
+      {/* Show admin answers first */}
+      {adminAnswers.map((answer, subIndex) =>
+        renderAnswer(answer, subIndex, true)
+      )}
 
+      {/* Show user's own answers */}
+      {filteredAnswers.map((answer, subIndex) =>
+        renderAnswer(answer, subIndex, false)
+      )}
+
+      {/* Input section for logged-in users */}
       {auth.currentUser?.uid && (
         <>
           <View style={styles.subThoughtInputContainer}>
             <TextInput
               style={styles.expandedInput}
-              placeholder="add sub answer here..."
+              placeholder="Add your response..."
               placeholderTextColor="#FFFFFF80"
               value={subAnswerText}
               onChangeText={setSubAnswertText}
@@ -533,6 +585,24 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 8,
   },
+  adminAnswerItem: {
+    backgroundColor: "#274472",
+    borderWidth: 1,
+    borderColor: "#5885AF",
+  },
+  adminBadge: {
+    backgroundColor: "#5885AF",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+    marginBottom: 5,
+  },
+  adminBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
   subThoughtText: {
     color: "#FFFFFF",
     fontSize: 14,
@@ -588,5 +658,11 @@ const styles = StyleSheet.create({
   documentText: {
     color: "#FFFFFF",
     marginLeft: 10,
+  },
+  mediaLabel: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 8,
   },
 });

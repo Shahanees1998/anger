@@ -233,26 +233,41 @@ const Needs = ({ navigation }) => {
   };
 
   const renderNeedsCard = ({ item }) => {
+    const hasAnswers =
+      item.answers && item.answers.some((a) => a.answerText.trim() !== "");
+
     return (
       <View
-        style={[styles.card, selectedCardId === item.id && styles.selectedCard]}
+        style={[
+          styles.card,
+          selectedCardId === item.id && styles.selectedCard,
+          !hasAnswers && !isAdmin && styles.disabledCard,
+        ]}
       >
         {!isAdmin && (
           <TouchableOpacity
-            style={styles.circle}
-            onPress={() => getAnswers(item)}
+            style={[styles.circle, !hasAnswers && styles.disabledCircle]}
+            onPress={() => {
+              if (hasAnswers) {
+                getAnswers(item);
+              } else {
+                Alert.alert("Info", "No content available for this item yet");
+              }
+            }}
+            disabled={!hasAnswers}
           >
             <Ionicons name="arrow-forward" size={24} color="#274472" />
           </TouchableOpacity>
         )}
         <TouchableOpacity
           onPress={() => {
-            isAdmin &&
+            if (isAdmin) {
               setUpdateQuestion({
                 subquestionId: item.id,
                 questionId: item.questionId,
                 text: item.subquestionText,
               });
+            }
           }}
         >
           <Text style={styles.cardText}>{item.subquestionText}</Text>
@@ -547,6 +562,12 @@ const styles = StyleSheet.create({
   sendButton: {
     marginLeft: 10,
     justifyContent: "center",
+  },
+  disabledCard: {
+    opacity: 0.5,
+  },
+  disabledCircle: {
+    opacity: 0.5,
   },
   subThoughtInputContainer: {
     flexDirection: "row",

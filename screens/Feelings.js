@@ -290,10 +290,21 @@ const Feelings = ({ navigation }) => {
         {!isAdmin && (
           <TouchableOpacity
             style={[styles.circle, !hasAnswers && styles.disabledCircle]}
-            onPress={() => hasAnswers && getAnswers(item)}
+            onPress={() => {
+              if (hasAnswers || item.thirdLevel) {
+                getAnswers(item);
+              } else {
+                Alert.alert("Info", "No content available for this item yet");
+              }
+            }}
+            disabled={!hasAnswers && !item.thirdLevel}
           >
             <Ionicons
-              name={item.thirdLevel ? "git-branch-outline" : "arrow-forward"}
+              name={
+                item.thirdLevel && item.thirdLevel.length > 0
+                  ? "git-branch-outline"
+                  : "arrow-forward"
+              }
               size={24}
               color="#274472"
             />

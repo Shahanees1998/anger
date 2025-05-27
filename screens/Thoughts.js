@@ -129,19 +129,18 @@ const Thoughts = ({ navigation }) => {
   const editThought = async (item) => {
     setAlertConfig({
       title: "Edit Thought",
-      value: item.question,
+      value: item.question || "", // Handle empty questions
+      allowEmpty: true, // Allow editing of empty questions
       onContinue: async (data) => {
         setAlertVisible(false);
         try {
-          // Allow empty data values and update only if changed
-          if (data !== item.question) {
-            await DataService.updateQuestions(
-              "thoughts-questions",
-              data,
-              item.id
-            );
-            fetchThoughts();
-          }
+          // Allow empty questions to be edited and always update regardless of value
+          await DataService.updateQuestions(
+            "thoughts-questions",
+            data || "", // Allow empty string
+            item.id
+          );
+          fetchThoughts();
         } catch (e) {
           console.error("Error updating thought:", e);
           Alert.alert("Error", "Failed to update thought");
