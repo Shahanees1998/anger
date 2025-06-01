@@ -127,9 +127,11 @@ const Thoughts = ({ navigation }) => {
   };
 
   const editThought = async (item) => {
+    console.log("Editing thought:", item);
+
     setAlertConfig({
       title: "Edit Thought",
-      value: item.question || "", // Handle empty questions
+      value: item.question || "Enter Question", // Handle empty questions
       allowEmpty: true, // Allow editing of empty questions
       onContinue: async (data) => {
         setAlertVisible(false);
@@ -310,11 +312,13 @@ const ExpandedForm = ({
     // Filter answers based on user ID and time
     if (thought?.answers) {
       const userId = auth.currentUser.uid;
-      
+
       // Use the centralized filtering method
-      DataService.filterAnswersForUser(thought.answers, userId).then((filtered) => {
-        setFilteredAnswers(filtered);
-      });
+      DataService.filterAnswersForUser(thought.answers, userId).then(
+        (filtered) => {
+          setFilteredAnswers(filtered);
+        }
+      );
     }
   }, [thought]);
 
