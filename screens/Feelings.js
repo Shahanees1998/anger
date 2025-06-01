@@ -30,11 +30,6 @@ const Feelings = ({ navigation }) => {
     subquestionId: "",
   });
   const [loading, setLoading] = useState(false);
-  const [thirdLevelItems, setThirdLevelItems] = useState([]);
-  const [thirdLevelSelected, setThirdLevelSelected] = useState(false);
-  const [thirdLevelInput, setThirdLevelInput] = useState("");
-  const [editingThirdLevel, setEditingThirdLevel] = useState(null);
-  const [thirdLevelAnswer, setThirdLevelAnswer] = useState("");
 
   const loadKnowledge = async () => {
     try {
@@ -87,23 +82,25 @@ const Feelings = ({ navigation }) => {
     text: `Feeling ${index + 1}`,
   }));
 
-  const generateDummyAnswers = (
-    questionId,
-    subquestionId,
-    thirdLevelId = null
-  ) => {
-    // Return empty array instead of dummy answers
-    return [];
+  const generateDummyAnswers = (questionId, subquestionId) => {
+    return Array.from({ length: 9 }, (_, index) => ({
+      id: `answer_${questionId}_${subquestionId}_${index}`,
+      answerText: ``,
+      questionId,
+      subquestionId,
+      createdAt: new Date(),
+      createdBy: 'system'
+    }));
   };
 
-  const generateThirdLevelItems = (questionId, subquestionId) => {
-    // Return empty array instead of dummy items
-    return [];
-  };
 
   const generateSubQuestions = (questionId) => {
-    // Return empty array instead of dummy subquestions
-    return [];
+    return Array.from({ length: 9 }, (_, index) => ({
+      id: `sub_${questionId}_${index}`,
+      subquestionText: ``,
+      questionId,
+      answers: generateDummyAnswers(questionId, `sub_${questionId}_${index}`)
+    }));
   };
 
   const addQuestion = async () => {
@@ -158,15 +155,6 @@ const Feelings = ({ navigation }) => {
   };
 
   const getAnswers = (item) => {
-    // Check if this item has third-level items
-    if (item.thirdLevel && item.thirdLevel.length > 0) {
-      // Navigate to third level view
-      setThirdLevelItems(item.thirdLevel);
-      setThirdLevelSelected(true);
-      setSelectedCardId(null);
-      return;
-    }
-
     // Check if there are answers available
     if (!item.answers || item.answers.length === 0) {
       Alert.alert("Error", "No answers available for this item");
@@ -188,50 +176,18 @@ const Feelings = ({ navigation }) => {
     setSelectedCardId(item.id);
   };
 
-  const handleBackFromThirdLevel = () => {
-    setThirdLevelSelected(false);
-    setThirdLevelItems([]);
-  };
 
-  const handleAddThirdLevel = async (subquestionId, questionId) => {
-    if (!thirdLevelInput.trim()) {
-      Alert.alert("Error", "Please enter text for the third level item");
-      return;
-    }
 
-    const newThirdLevel = {
-      text: thirdLevelInput,
-      id: `third_${Math.random().toString(36).substr(2, 20)}`,
-      questionId,
-      subquestionId,
-      answers: [], // Start with empty answers array
-    };
-
-    try {
-      await DataService.addThirdLevelItem(
-        "feelings-questions",
-        questionId,
-        subquestionId,
-        newThirdLevel
-      );
-      setThirdLevelInput("");
-      setEditingThirdLevel(null);
-      loadKnowledge();
-    } catch (error) {
-      console.error("Error adding third level item:", error);
-      Alert.alert("Error", "Failed to add third level item");
-    }
-  };
-
-  const renderThirdLevelCard = ({ item }) => {
-    const hasAnswers = item.answers && item.answers.some((a) => a.answerText && a.answerText.trim() !== "");
-    const isSelected = selectedCardId === item.id;
+  const renderFeelingsCard = ({ item }) => {
+    const isSelected = updateQuestion.subquestionId === item.id;
+    const hasAnswers = item.answers && item.answers.some((a) => a.answerText.trim() !== "");
 
     return (
       <View
         style={[
           styles.card,
-          isSelected && styles.selectedCard,
+          selectedCardId === item.id && styles.selectedCard,
+          isSelected && styles.adminSelectedCard,
           !hasAnswers && !isAdmin && styles.disabledCard,
         ]}
       >
@@ -257,61 +213,6 @@ const Feelings = ({ navigation }) => {
         <TouchableOpacity
           onPress={() => {
             if (isAdmin) {
-              // Toggle selection for admin to add answers
-              setSelectedCardId(isSelected ? null : item.id);
-            }
-          }}
-        >
-          <Text style={[styles.cardText, isSelected && styles.adminSelectedText]}>
-            {item.text}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const renderFeelingsCard = ({ item }) => {
-    const isSelected = updateQuestion.subquestionId === item.id;
-    const hasAnswers =
-      (item.answers && item.answers.some((a) => a.answerText.trim() !== "")) ||
-      (item.thirdLevel && item.thirdLevel.length > 0);
-
-    return (
-      <View
-        style={[
-          styles.card,
-          selectedCardId === item.id && styles.selectedCard,
-          isSelected && styles.adminSelectedCard,
-          !hasAnswers && !isAdmin && styles.disabledCard,
-        ]}
-      >
-        {!isAdmin && (
-          <TouchableOpacity
-            style={[styles.circle, !hasAnswers && styles.disabledCircle]}
-            onPress={() => {
-              if (hasAnswers || item.thirdLevel) {
-                getAnswers(item);
-              } else {
-                Alert.alert("Info", "No content available for this item yet");
-              }
-            }}
-            disabled={!hasAnswers && !item.thirdLevel}
-          >
-            <Ionicons
-              name={
-                item.thirdLevel && item.thirdLevel.length > 0
-                  ? "git-branch-outline"
-                  : "arrow-forward"
-              }
-              size={24}
-              color="#274472"
-            />
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          onPress={() => {
-            if (isAdmin) {
-              setEditingThirdLevel(item.id);
               setUpdateQuestion({
                 subquestionId: item.id,
                 questionId: item.questionId,
@@ -323,27 +224,9 @@ const Feelings = ({ navigation }) => {
           <Text
             style={[styles.cardText, isSelected && styles.adminSelectedText]}
           >
-            {item.subquestionText}
+            {item.subquestionText || (isAdmin ? "Empty - Click to edit" : "Not available")}
           </Text>
         </TouchableOpacity>
-        {isAdmin && editingThirdLevel === item.id && (
-          <View style={styles.thirdLevelInputContainer}>
-            <TextInput
-              style={styles.thirdLevelInput}
-              placeholder="Add sub-item..."
-              placeholderTextColor="#FFFFFF80"
-              value={thirdLevelInput}
-              onChangeText={setThirdLevelInput}
-              autoCapitalize="none"
-            />
-            <TouchableOpacity
-              onPress={() => handleAddThirdLevel(item.id, item.questionId)}
-              style={styles.addThirdLevelButton}
-            >
-              <Ionicons name="add-circle" size={24} color="#274472" />
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
     );
   };
@@ -407,86 +290,25 @@ const Feelings = ({ navigation }) => {
   return (
     <LinearGradient colors={["#5885AF", "#5885AF"]} style={styles.background}>
       <Header
-        onBack={() => {
-          if (thirdLevelSelected) {
-            handleBackFromThirdLevel();
-          } else {
-            navigation.goBack();
-          }
-        }}
-        title={thirdLevelSelected ? "Sub-items" : "Feelings"}
+        onBack={() => navigation.goBack()}
+        title="Feelings"
       />
       <View style={styles.container}>
         {loading ? (
           <ActivityIndicator size="large" color="white" />
         ) : (
-          <>
-          {thirdLevelSelected ? (
-            <>
-            <FlatList
-              data={selectedCardId ? subAnswers : thirdLevelItems}
-              keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
-              renderItem={
-                selectedCardId
-                  ? renderRadioButtonCard
-                  : renderThirdLevelCard
-              }
-              numColumns={3}
-              contentContainerStyle={styles.grid}
-              columnWrapperStyle={styles.columnWrapper}
-            />
-            {isAdmin && selectedCardId && (
-              <View style={styles.bottomContainer}>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Add answer to third-level item..."
-                    placeholderTextColor="#FFFFFF"
-                    value={thirdLevelAnswer}
-                    onChangeText={setThirdLevelAnswer}
-                  />
-                  <TouchableOpacity 
-                    onPress={async () => {
-                      if (thirdLevelAnswer.trim()) {
-                        // Find the selected third-level item
-                        const selectedItem = thirdLevelItems.find(item => item.id === selectedCardId);
-                        if (selectedItem) {
-                          try {
-                            await DataService.updateThirdLevelAnswer(
-                              "feelings-questions",
-                              selectedItem.questionId,
-                              selectedItem.subquestionId,
-                              selectedItem.id,
-                              `answer_${Math.random().toString(36).substr(2, 20)}`,
-                              thirdLevelAnswer.trim()
-                            );
-                            setThirdLevelAnswer("");
-                            loadKnowledge();
-                            Alert.alert("Success", "Answer added to third-level item");
-                          } catch (error) {
-                            Alert.alert("Error", "Failed to add answer");
-                          }
-                        }
-                      }
-                    }} 
-                    style={styles.sendButton}
-                  >
-                    <Ionicons name="paper-plane-outline" size={24} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-            </>
-          ) : (
           <FlatList
             data={knowledge}
             keyExtractor={(item, index) => index.toString()}
             renderItem={({ item, index }) => {
-              // Filter out empty subquestions
-              const squesutions = item.subquestions?.filter(sq => 
-                sq.subquestionText && sq.subquestionText.trim() !== "" &&
-                !sq.subquestionText.includes("Item ")
-              ) || [];
+              // Show all subquestions for admin, filter for users
+              const subquestions = item.subquestions?.filter(sq => {
+                if (isAdmin) {
+                  return true; // Admin sees all subquestions
+                }
+                return sq.subquestionText && sq.subquestionText.trim() !== "" &&
+                       !sq.subquestionText.includes("Item ");
+              }) || [];
               return (
                 <>
                   <TouchableOpacity onPress={() => toggleExpand(index)}>
@@ -536,7 +358,7 @@ const Feelings = ({ navigation }) => {
                         </View>
                       )}
                       <FlatList
-                        data={selectedCardId ? subAnswers : squesutions}
+                        data={selectedCardId ? subAnswers : subquestions}
                         keyExtractor={(item) => item.id.toString()}
                         renderItem={
                           selectedCardId
@@ -553,8 +375,7 @@ const Feelings = ({ navigation }) => {
               );
             }}
           />
-          )}
-          </>
+        )}
         )}
         {isAdmin && knowledge.length == 0 && (
           <View style={styles.bottomContainer}>
@@ -771,26 +592,5 @@ const styles = StyleSheet.create({
   },
   disabledCircle: {
     opacity: 0.5,
-  },
-  thirdLevelInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#41729F",
-    borderRadius: 5,
-    padding: 5,
-    marginTop: 5,
-    width: "100%",
-  },
-  thirdLevelInput: {
-    flex: 1,
-    color: "#FFFFFF",
-    fontSize: 12,
-    padding: 2,
-  },
-  addThirdLevelButton: {
-    padding: 5,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 15,
-    marginLeft: 5,
   },
 });
