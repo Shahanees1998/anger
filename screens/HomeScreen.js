@@ -1,46 +1,40 @@
+import Entypo from "@expo/vector-icons/Entypo";
+import Feather from "@expo/vector-icons/Feather";
+import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
   ActivityIndicator,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import HomeTab from "./HomeTab";
-import AdminDashboard from "./AdminDashboard";
-import SettingsTab from "./SettingsTab";
-import ProfileTab from "./ProfileTab";
-import Center from "../assets/centeredIcon.png";
-import IceBerg from "./IceBerg";
-import KnowledgeHome from "./KnowldgeHome";
-import Knowledge from "./Knowledge";
-import SOS from "./SOS";
-import SOSHome from "./SOSHome";
-import Feelings from "./Feelings";
 import Home from "../assets/Home.png";
+import Center from "../assets/centeredIcon.png";
 import Document from "../assets/document.png";
 import Iceberg from "../assets/iceberg_home.png";
 import profile from "../assets/profile.png";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
 import NetworkStatus from "../components/NetworkStatus";
+import { auth } from "../firebase";
 import DataService from "../services/DataService";
-import UsersListing from "./UsersListing";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import Feather from "@expo/vector-icons/Feather";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import Entypo from "@expo/vector-icons/Entypo";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import Body from "./Body";
+import Feelings from "./FeelingsRevamped";
+import HomeTab from "./HomeTab";
+import IceBerg from "./IceBerg";
+import Knowledge from "./Knowledge";
+import Needs from "./NeedsRevamped";
+import ProfileTab from "./ProfileTab";
+import SOS from "./SOS";
+import SOSHome from "./SOSHome";
 import SubmittedAnswers from "./SubmittedAnswers";
 import Thoughts from "./Thoughts";
-import Ready from "./Ready";
-import Body from "./Body";
-import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
-import Needs from "./Needs";
+import UsersListing from "./UsersListing";
 
 // Placeholder components for tabs
 

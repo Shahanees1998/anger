@@ -17,41 +17,61 @@ export const SubItemEditModal = ({
   visible, 
   subItem, 
   onSave, 
-  onClose 
+  onClose,
+  labelOnly = false
 }) => {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
+  const [label, setLabel] = useState('');
   const questionInputRef = useRef(null);
   const answerInputRef = useRef(null);
+  const labelInputRef = useRef(null);
 
   useEffect(() => {
     if (subItem) {
-      setQuestion(subItem.question || '');
-      setAnswer(subItem.answer || '');
+      if (labelOnly) {
+        setLabel(subItem.label || '');
+      } else {
+        setQuestion(subItem.question || '');
+        setAnswer(subItem.answer || '');
+      }
     }
-  }, [subItem]);
+  }, [subItem, labelOnly]);
 
   useEffect(() => {
-    if (visible && questionInputRef.current) {
-      // Focus on question input when modal opens
+    if (visible) {
+      // Focus on appropriate input when modal opens
       setTimeout(() => {
-        questionInputRef.current?.focus();
+        if (labelOnly && labelInputRef.current) {
+          labelInputRef.current?.focus();
+        } else if (questionInputRef.current) {
+          questionInputRef.current?.focus();
+        }
       }, 100);
     }
-  }, [visible]);
+  }, [visible, labelOnly]);
 
   const handleSave = () => {
-    if (!question.trim() && !answer.trim()) {
-      alert('Please enter at least a question or answer');
-      return;
+    if (labelOnly) {
+      if (!label.trim()) {
+        alert('Please enter a label');
+        return;
+      }
+      onSave({ label });
+    } else {
+      if (!question.trim() && !answer.trim()) {
+        alert('Please enter at least a question or answer');
+        return;
+      }
+      onSave({ question, answer });
     }
-    onSave({ question, answer });
     handleClose();
   };
 
   const handleClose = () => {
     setQuestion('');
     setAnswer('');
+    setLabel('');
     Keyboard.dismiss();
     onClose();
   };
@@ -69,41 +89,61 @@ export const SubItemEditModal = ({
       >
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Edit Sub-Item</Text>
+            <Text style={styles.modalTitle}>{labelOnly ? 'Edit Sub-box Label' : 'Edit Sub-Item'}</Text>
             <TouchableOpacity onPress={handleClose}>
               <Ionicons name="close" size={24} color="#FFF" />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.inputContainer}>
-            <Text style={styles.label}>Question</Text>
-            <TextInput
-              ref={questionInputRef}
-              style={styles.input}
-              placeholder="Enter question..."
-              placeholderTextColor="#FFFFFF60"
-              value={question}
-              onChangeText={setQuestion}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              returnKeyType="next"
-              onSubmitEditing={() => answerInputRef.current?.focus()}
-            />
+            {labelOnly ? (
+              <>
+                <Text style={styles.label}>Label</Text>
+                <TextInput
+                  ref={labelInputRef}
+                  style={styles.input}
+                  placeholder="Enter label..."
+                  placeholderTextColor="#FFFFFF60"
+                  value={label}
+                  onChangeText={setLabel}
+                  multiline
+                  numberOfLines={2}
+                  textAlignVertical="top"
+                  returnKeyType="done"
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.label}>Question</Text>
+                <TextInput
+                  ref={questionInputRef}
+                  style={styles.input}
+                  placeholder="Enter question..."
+                  placeholderTextColor="#FFFFFF60"
+                  value={question}
+                  onChangeText={setQuestion}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                  returnKeyType="next"
+                  onSubmitEditing={() => answerInputRef.current?.focus()}
+                />
 
-            <Text style={styles.label}>Answer</Text>
-            <TextInput
-              ref={answerInputRef}
-              style={styles.input}
-              placeholder="Enter answer..."
-              placeholderTextColor="#FFFFFF60"
-              value={answer}
-              onChangeText={setAnswer}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              returnKeyType="done"
-            />
+                <Text style={styles.label}>Answer</Text>
+                <TextInput
+                  ref={answerInputRef}
+                  style={styles.input}
+                  placeholder="Enter answer..."
+                  placeholderTextColor="#FFFFFF60"
+                  value={answer}
+                  onChangeText={setAnswer}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                  returnKeyType="done"
+                />
+              </>
+            )}
           </ScrollView>
 
           <View style={styles.buttonContainer}>

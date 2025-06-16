@@ -1141,7 +1141,12 @@ class DataService {
   static async addAnswerOption(option, collectionPath) {
     try {
       const optionsCollection = collection(db, `${collectionPath}-options`);
-      await addDoc(optionsCollection, option);
+      // If option has an ID, use setDoc with that ID, otherwise use addDoc
+      if (option.id) {
+        await setDoc(doc(db, `${collectionPath}-options`, option.id), option);
+      } else {
+        await addDoc(optionsCollection, option);
+      }
       return true;
     } catch (error) {
       console.error("Error adding answer option:", error);
@@ -1161,7 +1166,211 @@ class DataService {
     }
   }
 
+  // Update box label
+  static async updateBoxLabel(data, collectionPath) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("No authenticated user");
 
+    try {
+      const containerQuery = query(
+        collection(db, collectionPath),
+        where("containerId", "==", data.containerId)
+      );
+
+      const containerSnapshot = await getDocs(containerQuery);
+
+      if (!containerSnapshot.empty) {
+        const containerDoc = containerSnapshot.docs[0];
+        const containerData = containerDoc.data();
+
+        const boxIndex = containerData.boxes.findIndex(
+          (box) => box.id === data.boxId
+        );
+
+        if (boxIndex !== -1) {
+          // Update the box label
+          containerData.boxes[boxIndex].boxLabel = data.label;
+
+          // Update the document in Firestore
+          await updateDoc(containerDoc.ref, {
+            boxes: containerData.boxes,
+          });
+
+          console.log(`Box label updated successfully for boxId: ${data.boxId}`);
+          return true;
+        } else {
+          console.log(`Box with id ${data.boxId} not found.`);
+          return false;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error("Error updating box label:", error);
+      throw error;
+    }
+  }
+
+  // Update sub-box label
+  static async updateSubBoxLabel(data, collectionPath) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("No authenticated user");
+
+    try {
+      const containerQuery = query(
+        collection(db, collectionPath),
+        where("containerId", "==", data.containerId)
+      );
+
+      const containerSnapshot = await getDocs(containerQuery);
+
+      if (!containerSnapshot.empty) {
+        const containerDoc = containerSnapshot.docs[0];
+        const containerData = containerDoc.data();
+
+        const boxIndex = containerData.boxes.findIndex(
+          (box) => box.id === data.boxId
+        );
+
+        if (boxIndex !== -1) {
+          const subBoxIndex = containerData.boxes[boxIndex].subBoxes.findIndex(
+            (subBox) => subBox.id === data.subBoxId
+          );
+
+          if (subBoxIndex !== -1) {
+            // Update the sub-box label
+            containerData.boxes[boxIndex].subBoxes[subBoxIndex].label = data.label;
+
+            // Update the document in Firestore
+            await updateDoc(containerDoc.ref, {
+              boxes: containerData.boxes,
+            });
+
+            console.log(`Sub-box label updated successfully for subBoxId: ${data.subBoxId}`);
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error("Error updating sub-box label:", error);
+      return false;
+    }
+  }
+
+  // Get sub-boxes for a specific box
+  static async getSubBoxes(containerId, boxId, collectionPath) {
+    try {
+      const containerQuery = query(
+        collection(db, collectionPath),
+        where("containerId", "==", containerId)
+      );
+
+      const containerSnapshot = await getDocs(containerQuery);
+
+      if (!containerSnapshot.empty) {
+        const containerDoc = containerSnapshot.docs[0];
+        const containerData = containerDoc.data();
+
+        const box = containerData.boxes.find(
+          (b) => b.id === boxId
+        );
+
+        if (box && box.subBoxes) {
+          return box.subBoxes;
+        }
+      }
+      return [];
+    } catch (error) {
+      console.error("Error getting sub-boxes:", error);
+      return [];
+    }
+  }
+
+  // Save user selection with 24-hour expiry
+  static async saveUserSelection(collectionPath, selection) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("No authenticated user");
+
+    try {
+      if (await this.isOnline()) {
+        const selectionsCollection = collection(db, collectionPath);
+        
+        // First, delete any existing selection for this user
+        const q = query(
+          selectionsCollection,
+          where("userId", "==", selection.userId)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+        
+        // Then add the new selection
+        await addDoc(selectionsCollection, selection);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error saving user selection:", error);
+      throw error;
+    }
+  }
+
+  // Get user's current selection if within 24 hours
+  static async getUserSelection(collectionPath, userId) {
+    try {
+      if (await this.isOnline()) {
+        const selectionsCollection = collection(db, collectionPath);
+        const q = query(
+          selectionsCollection,
+          where("userId", "==", userId)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const doc = querySnapshot.docs[0];
+          const data = doc.data();
+          
+          // Check if selection is within 24 hours
+          const selectedAt = data.selectedAt.toDate ? data.selectedAt.toDate() : new Date(data.selectedAt);
+          const hoursSinceSelection = (new Date() - selectedAt) / (1000 * 60 * 60);
+          
+          if (hoursSinceSelection < 24) {
+            return {
+              id: doc.id,
+              ...data
+            };
+          } else {
+            // Delete expired selection
+            await deleteDoc(doc.ref);
+          }
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error("Error getting user selection:", error);
+      return null;
+    }
+  }
+
+  // Get box containers
+  static async getBoxContainers(collectionPath) {
+    try {
+      if (await this.isOnline()) {
+        const querySnapshot = await getDocs(collection(db, collectionPath));
+        const containers = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        return containers;
+      }
+      return [];
+    } catch (error) {
+      console.error("Error getting box containers:", error);
+      return [];
+    }
+  }
 }
 
 export default DataService;
