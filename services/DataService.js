@@ -10,6 +10,7 @@ import {
   updateDoc,
   serverTimestamp,
   arrayUnion,
+  deleteDoc,
 } from "firebase/firestore";
 import { auth, db, storage } from "../firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
@@ -1003,6 +1004,160 @@ class DataService {
     } catch (error) {
       console.error("Error getting help question:", error);
       return null;
+    }
+  }
+
+  // Update sub-item within a subquestion (for 9x9 structure)
+  static async updateSubItem(data, collectionPath) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("No authenticated user");
+
+    try {
+      const questionQuery = query(
+        collection(db, collectionPath),
+        where("questionId", "==", data.questionId)
+      );
+
+      const questionSnapshot = await getDocs(questionQuery);
+
+      if (!questionSnapshot.empty) {
+        const questionDoc = questionSnapshot.docs[0];
+        const questionData = questionDoc.data();
+
+        const subquestionIndex = questionData.subquestions.findIndex(
+          (sub) => sub.id === data.subquestionId
+        );
+
+        if (subquestionIndex !== -1) {
+          // Initialize subItems array if it doesn't exist
+          if (!questionData.subquestions[subquestionIndex].subItems) {
+            questionData.subquestions[subquestionIndex].subItems = Array.from({ length: 9 }, (_, index) => ({
+              id: `subitem_${data.subquestionId}_${index}`,
+              question: "",
+              answer: "",
+              createdAt: new Date(),
+              createdBy: user.uid
+            }));
+          }
+
+          // Find the sub-item to update
+          const subItemIndex = questionData.subquestions[subquestionIndex].subItems.findIndex(
+            (subItem) => subItem.id === data.subItemId
+          );
+
+          if (subItemIndex !== -1) {
+            // Update existing sub-item
+            questionData.subquestions[subquestionIndex].subItems[subItemIndex] = {
+              ...questionData.subquestions[subquestionIndex].subItems[subItemIndex],
+              question: data.question || "",
+              answer: data.answer || "",
+              updatedAt: new Date(),
+              updatedBy: user.uid
+            };
+
+            // Update the document in Firestore
+            await updateDoc(questionDoc.ref, {
+              subquestions: questionData.subquestions,
+            });
+
+            console.log(`Sub-item updated successfully for subItemId: ${data.subItemId}`);
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error("Error updating sub-item:", error);
+      return false;
+    }
+  }
+
+  // Get sub-items for a specific subquestion
+  static async getSubItems(questionId, subquestionId, collectionPath) {
+    try {
+      const questionQuery = query(
+        collection(db, collectionPath),
+        where("questionId", "==", questionId)
+      );
+
+      const questionSnapshot = await getDocs(questionQuery);
+
+      if (!questionSnapshot.empty) {
+        const questionDoc = questionSnapshot.docs[0];
+        const questionData = questionDoc.data();
+
+        const subquestion = questionData.subquestions.find(
+          (sub) => sub.id === subquestionId
+        );
+
+        if (subquestion && subquestion.subItems) {
+          return subquestion.subItems;
+        }
+
+        // If subItems don't exist, create them
+        const user = auth.currentUser;
+        if (user) {
+          const defaultSubItems = Array.from({ length: 9 }, (_, index) => ({
+            id: `subitem_${subquestionId}_${index}`,
+            question: "",
+            answer: "",
+            createdAt: new Date(),
+            createdBy: user.uid
+          }));
+          return defaultSubItems;
+        }
+      }
+      return [];
+    } catch (error) {
+      console.error("Error getting sub-items:", error);
+      return [];
+    }
+  }
+
+  // Get answer options for a specific subquestion
+  static async getAnswerOptions(subquestionId, collectionPath) {
+    try {
+      const optionsCollection = collection(db, `${collectionPath}-options`);
+      const q = query(optionsCollection, where("subquestionId", "==", subquestionId));
+      
+      const querySnapshot = await getDocs(q);
+      const options = [];
+      
+      querySnapshot.forEach((doc) => {
+        options.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+      
+      return options;
+    } catch (error) {
+      console.error("Error getting answer options:", error);
+      return [];
+    }
+  }
+
+  // Add a new answer option
+  static async addAnswerOption(option, collectionPath) {
+    try {
+      const optionsCollection = collection(db, `${collectionPath}-options`);
+      await addDoc(optionsCollection, option);
+      return true;
+    } catch (error) {
+      console.error("Error adding answer option:", error);
+      throw error;
+    }
+  }
+
+  // Delete an answer option
+  static async deleteAnswerOption(optionId, subquestionId, collectionPath) {
+    try {
+      const optionDoc = doc(db, `${collectionPath}-options`, optionId);
+      await deleteDoc(optionDoc);
+      return true;
+    } catch (error) {
+      console.error("Error deleting answer option:", error);
+      throw error;
     }
   }
 

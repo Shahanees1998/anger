@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,6 +10,10 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  ScrollView,
 } from "react-native";
 import { auth } from "../firebase";
 // import { v4 as uuidv4 } from "uuid";
@@ -24,12 +28,20 @@ const Feelings = ({ navigation }) => {
   const [selectedRadioButtonId, setSelectedRadioButtonId] = useState(null);
   const [subAnswers, setSubAnswers] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedSubquestionId, setSelectedSubquestionId] = useState(null);
+  const [subItems, setSubItems] = useState([]);
+  const [subItemEdit, setSubItemEdit] = useState({ id: '', question: '', answer: '' });
   const [updateQuestion, setUpdateQuestion] = useState({
     text: "",
     questionId: "",
     subquestionId: "",
   });
   const [loading, setLoading] = useState(false);
+  const [answerOptions, setAnswerOptions] = useState([]);
+  const [newAnswerOption, setNewAnswerOption] = useState('');
+  const [selectedAnswerOption, setSelectedAnswerOption] = useState(null);
+  const questionInputRef = useRef(null);
+  const answerInputRef = useRef(null);
 
   const loadKnowledge = async () => {
     try {
@@ -99,7 +111,14 @@ const Feelings = ({ navigation }) => {
       id: `sub_${questionId}_${index}`,
       subquestionText: ``,
       questionId,
-      answers: generateDummyAnswers(questionId, `sub_${questionId}_${index}`)
+      answers: generateDummyAnswers(questionId, `sub_${questionId}_${index}`),
+      subItems: Array.from({ length: 9 }, (_, subIndex) => ({
+        id: `subitem_sub_${questionId}_${index}_${subIndex}`,
+        question: '',
+        answer: '',
+        createdAt: new Date(),
+        createdBy: 'system'
+      }))
     }));
   };
 
@@ -176,6 +195,137 @@ const Feelings = ({ navigation }) => {
     setSelectedCardId(item.id);
   };
 
+  const showSubItems = async (subquestion) => {
+    setSelectedSubquestionId(subquestion.id);
+    setSelectedCardId(null); // Clear any previous selection
+    
+    if (isAdmin) {
+      try {
+        const items = await DataService.getSubItems(
+          subquestion.questionId,
+          subquestion.id,
+          'feelings-questions'
+        );
+        setSubItems(items);
+        loadAnswerOptions(subquestion.id);
+      } catch (error) {
+        console.error('Error loading sub-items:', error);
+        Alert.alert('Error', 'Failed to load sub-items');
+      }
+    } else {
+      loadAnswerOptions(subquestion.id);
+    }
+  };
+
+  const handleSubItemUpdate = async () => {
+    if (!subItemEdit.id || (!subItemEdit.question && !subItemEdit.answer)) {
+      Alert.alert('Error', 'Please select a sub-item and enter question or answer');
+      return;
+    }
+
+    try {
+      const success = await DataService.updateSubItem({
+        questionId: knowledge[0]?.questionId,
+        subquestionId: selectedSubquestionId,
+        subItemId: subItemEdit.id,
+        question: subItemEdit.question,
+        answer: subItemEdit.answer
+      }, 'feelings-questions');
+
+      if (success) {
+        Alert.alert('Success', 'Sub-item updated successfully');
+        setSubItemEdit({ id: '', question: '', answer: '' });
+        // Refresh sub-items
+        const items = await DataService.getSubItems(
+          knowledge[0]?.questionId,
+          selectedSubquestionId,
+          'feelings-questions'
+        );
+        setSubItems(items);
+      } else {
+        Alert.alert('Error', 'Failed to update sub-item');
+      }
+    } catch (error) {
+      console.error('Error updating sub-item:', error);
+      Alert.alert('Error', 'Failed to update sub-item');
+    }
+  };
+
+  const loadAnswerOptions = async (subquestionId) => {
+    try {
+      const options = await DataService.getAnswerOptions(subquestionId, 'feelings-questions');
+      setAnswerOptions(options || []);
+    } catch (error) {
+      console.error('Error loading answer options:', error);
+    }
+  };
+
+  const addAnswerOption = async () => {
+    if (!newAnswerOption.trim() || !selectedSubquestionId) {
+      Alert.alert('Error', 'Please enter an answer option and select a subquestion');
+      return;
+    }
+
+    try {
+      const optionId = Math.random().toString(36).substr(2, 20);
+      const newOption = {
+        id: optionId,
+        text: newAnswerOption.trim(),
+        subquestionId: selectedSubquestionId,
+        createdAt: new Date(),
+        createdBy: auth.currentUser.uid
+      };
+
+      await DataService.addAnswerOption(newOption, 'feelings-questions');
+      setNewAnswerOption('');
+      loadAnswerOptions(selectedSubquestionId);
+      Alert.alert('Success', 'Answer option added successfully');
+    } catch (error) {
+      console.error('Error adding answer option:', error);
+      Alert.alert('Error', 'Failed to add answer option');
+    }
+  };
+
+  const deleteAnswerOption = async (optionId) => {
+    try {
+      await DataService.deleteAnswerOption(optionId, selectedSubquestionId, 'feelings-questions');
+      loadAnswerOptions(selectedSubquestionId);
+      Alert.alert('Success', 'Answer option deleted successfully');
+    } catch (error) {
+      console.error('Error deleting answer option:', error);
+      Alert.alert('Error', 'Failed to delete answer option');
+    }
+  };
+
+  const selectAnswerOption = async (option) => {
+    if (!isAdmin) {
+      setSelectedAnswerOption(option.id);
+      
+      const userAnswer = {
+        questionId: knowledge[0]?.questionId,
+        subquestionId: selectedSubquestionId,
+        optionId: option.id,
+        userId: auth.currentUser.uid,
+        answer: option.text,
+        createdAt: new Date(),
+      };
+
+      try {
+        await DataService.checkExistingRecordAndUpdate(
+          "user-feelings-answers",
+          userAnswer
+        );
+        Alert.alert("Success", "Your answer has been saved");
+        setSelectedSubquestionId(null);
+        setAnswerOptions([]);
+        setSelectedAnswerOption(null);
+      } catch (error) {
+        console.error("Error saving answer:", error);
+        Alert.alert("Error", "Failed to save your answer");
+      }
+    }
+  };
+
 
 
   const renderFeelingsCard = ({ item }) => {
@@ -196,7 +346,7 @@ const Feelings = ({ navigation }) => {
             style={[styles.circle, !hasAnswers && styles.disabledCircle]}
             onPress={() => {
               if (hasAnswers) {
-                getAnswers(item);
+                showSubItems(item);
               } else {
                 Alert.alert("Info", "No content available for this item yet");
               }
@@ -227,7 +377,54 @@ const Feelings = ({ navigation }) => {
             {item.subquestionText || (isAdmin ? "Empty - Click to edit" : "Not available")}
           </Text>
         </TouchableOpacity>
+        {isAdmin && (
+          <TouchableOpacity
+            style={styles.subItemsButton}
+            onPress={() => showSubItems(item)}
+          >
+            <Ionicons name="grid-outline" size={16} color="#FFF" />
+            <Text style={styles.subItemsButtonText}>9 Items</Text>
+          </TouchableOpacity>
+        )}
       </View>
+    );
+  };
+
+  const renderSubItemCard = ({ item }) => {
+    const isSelected = subItemEdit.id === item.id;
+    
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[
+          styles.subItemCard,
+          isSelected && styles.selectedSubItemCard,
+          { width: '31%' }
+        ]}
+        onPress={() => {
+          // Dismiss keyboard first to avoid focus issues
+          Keyboard.dismiss();
+          
+          setSubItemEdit({
+            id: item.id,
+            question: item.question || '',
+            answer: item.answer || ''
+          });
+          
+          // Focus on the question input after keyboard is dismissed
+          setTimeout(() => {
+            if (questionInputRef.current) {
+              questionInputRef.current.focus();
+            }
+          }, 300);
+        }}
+      >
+        <Text style={styles.subItemText}>
+          {item.question && item.answer 
+            ? `Q: ${item.question.slice(0, 20)}${item.question.length > 20 ? '...' : ''}` 
+            : 'Empty - Click to edit'}
+        </Text>
+      </TouchableOpacity>
     );
   };
 
@@ -300,6 +497,7 @@ const Feelings = ({ navigation }) => {
           <FlatList
             data={knowledge}
             keyExtractor={(item, index) => index.toString()}
+            keyboardShouldPersistTaps="handled"
             renderItem={({ item, index }) => {
               // Show all subquestions for admin, filter for users
               const subquestions = item.subquestions?.filter(sq => {
@@ -357,25 +555,156 @@ const Feelings = ({ navigation }) => {
                           </TouchableOpacity>
                         </View>
                       )}
-                      <FlatList
-                        data={selectedCardId ? subAnswers : subquestions}
-                        keyExtractor={(item) => item.id.toString()}
-                        renderItem={
-                          selectedCardId
-                            ? renderRadioButtonCard
-                            : renderFeelingsCard
-                        }
-                        numColumns={3}
-                        contentContainerStyle={styles.grid}
-                        columnWrapperStyle={styles.columnWrapper}
-                      />
+                      {selectedSubquestionId ? (
+                        <>
+                          <View style={styles.subItemHeader}>
+                            <Text style={styles.subItemHeaderText}>{isAdmin ? "9 Sub-Items & Answer Options" : "Answer Options"}</Text>
+                            <TouchableOpacity
+                              onPress={() => {
+                                setSelectedSubquestionId(null);
+                                setSubItems([]);
+                                setSubItemEdit({ id: '', question: '', answer: '' });
+                                setAnswerOptions([]);
+                                setSelectedAnswerOption(null);
+                                setNewAnswerOption('');
+                              }}
+                            >
+                              <Ionicons name="close" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                          </View>
+                          
+                          {isAdmin && (
+                            <>
+                              <ScrollView
+                                horizontal={false}
+                                keyboardShouldPersistTaps="handled"
+                                style={{ maxHeight: 300 }}
+                              >
+                                <View style={styles.grid}>
+                                  <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                                    {subItems.map((item) => renderSubItemCard({ item }))}
+                                  </View>
+                                </View>
+                              </ScrollView>
+                              {subItemEdit.id && (
+                                <KeyboardAvoidingView
+                                  behavior={Platform.OS === "ios" ? "padding" : "height"}
+                                  style={styles.subItemEditContainer}
+                                >
+                                  <TextInput
+                                    ref={questionInputRef}
+                                    style={styles.subItemInput}
+                                    placeholder="Enter question..."
+                                    placeholderTextColor="#FFFFFF80"
+                                    value={subItemEdit.question}
+                                    onChangeText={(text) => setSubItemEdit({...subItemEdit, question: text})}
+                                    multiline
+                                    textAlignVertical="top"
+                                    autoFocus={false}
+                                    onSubmitEditing={() => {
+                                      if (answerInputRef.current) {
+                                        answerInputRef.current.focus();
+                                      }
+                                    }}
+                                    returnKeyType="next"
+                                  />
+                                  <TextInput
+                                    ref={answerInputRef}
+                                    style={styles.subItemInput}
+                                    placeholder="Enter answer..."
+                                    placeholderTextColor="#FFFFFF80"
+                                    value={subItemEdit.answer}
+                                    onChangeText={(text) => setSubItemEdit({...subItemEdit, answer: text})}
+                                    multiline
+                                    textAlignVertical="top"
+                                    autoFocus={false}
+                                    returnKeyType="done"
+                                    onSubmitEditing={Keyboard.dismiss}
+                                  />
+                                  <TouchableOpacity
+                                    onPress={handleSubItemUpdate}
+                                    style={styles.subItemSaveButton}
+                                  >
+                                    <Ionicons name="checkmark" size={24} color="#274472" />
+                                  </TouchableOpacity>
+                                </KeyboardAvoidingView>
+                              )}
+                              
+                              <View style={styles.answerOptionsHeader}>
+                                <Text style={styles.answerOptionsHeaderText}>Answer Options</Text>
+                              </View>
+                              
+                              <View style={styles.addOptionContainer}>
+                                <TextInput
+                                  style={styles.addOptionInput}
+                                  placeholder="Add new answer option..."
+                                  placeholderTextColor="#FFFFFF80"
+                                  value={newAnswerOption}
+                                  onChangeText={setNewAnswerOption}
+                                />
+                                <TouchableOpacity
+                                  onPress={addAnswerOption}
+                                  style={styles.addOptionButton}
+                                >
+                                  <Ionicons name="add" size={24} color="#274472" />
+                                </TouchableOpacity>
+                              </View>
+                            </>
+                          )}
+                          
+                          <FlatList
+                            data={answerOptions}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => (
+                              <TouchableOpacity
+                                style={[
+                                  styles.answerOptionCard,
+                                  selectedAnswerOption === item.id && styles.selectedAnswerOption
+                                ]}
+                                onPress={() => selectAnswerOption(item)}
+                              >
+                                <Text style={styles.answerOptionText}>{item.text}</Text>
+                                {isAdmin && (
+                                  <TouchableOpacity
+                                    style={styles.deleteOptionButton}
+                                    onPress={() => deleteAnswerOption(item.id)}
+                                  >
+                                    <Ionicons name="trash" size={16} color="#FF4444" />
+                                  </TouchableOpacity>
+                                )}
+                                {!isAdmin && (
+                                  <Ionicons
+                                    name={selectedAnswerOption === item.id ? "radio-button-on" : "radio-button-off"}
+                                    size={24}
+                                    color="#FFF"
+                                  />
+                                )}
+                              </TouchableOpacity>
+                            )}
+                            numColumns={1}
+                            contentContainerStyle={styles.answerOptionsGrid}
+                          />
+                        </>
+                      ) : (
+                        <FlatList
+                          data={selectedCardId ? subAnswers : subquestions}
+                          keyExtractor={(item) => item.id.toString()}
+                          renderItem={
+                            selectedCardId
+                              ? renderRadioButtonCard
+                              : renderFeelingsCard
+                          }
+                          numColumns={3}
+                          contentContainerStyle={styles.grid}
+                          columnWrapperStyle={styles.columnWrapper}
+                        />
+                      )}
                     </>
                   )}
                 </>
               );
             }}
           />
-        )}
         )}
         {isAdmin && knowledge.length == 0 && (
           <View style={styles.bottomContainer}>
@@ -592,5 +921,131 @@ const styles = StyleSheet.create({
   },
   disabledCircle: {
     opacity: 0.5,
+  },
+  subItemsButton: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: '#274472',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subItemsButtonText: {
+    color: '#FFF',
+    fontSize: 10,
+    marginLeft: 2,
+  },
+  subItemCard: {
+    margin: 4,
+    aspectRatio: 1,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+  },
+  selectedSubItemCard: {
+    backgroundColor: '#FFD700',
+  },
+  subItemText: {
+    color: '#FFF',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  subItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  subItemHeaderText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  subItemEditContainer: {
+    padding: 16,
+    backgroundColor: '#41729F',
+    borderRadius: 10,
+    margin: 16,
+  },
+  subItemInput: {
+    backgroundColor: '#FFFFFF2A',
+    color: '#FFF',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    minHeight: 40,
+  },
+  subItemSaveButton: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: 8,
+  },
+  answerOptionsHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#FFFFFF3A',
+    marginTop: 16,
+  },
+  answerOptionsHeaderText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  addOptionContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  addOptionInput: {
+    flex: 1,
+    backgroundColor: '#FFFFFF2A',
+    color: '#FFF',
+    padding: 12,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  addOptionButton: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  answerOptionsGrid: {
+    paddingHorizontal: 16,
+  },
+  answerOptionCard: {
+    backgroundColor: '#FFFFFF2A',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectedAnswerOption: {
+    backgroundColor: '#274472',
+  },
+  answerOptionText: {
+    color: '#FFF',
+    fontSize: 14,
+    flex: 1,
+  },
+  deleteOptionButton: {
+    padding: 4,
   },
 });

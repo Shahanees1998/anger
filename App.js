@@ -26,8 +26,8 @@ import Ready from "./screens/Ready";
 import SOSMedication from "./screens/SOSMedication";
 import Opinion from "./screens/Opinion";
 import Body from "./screens/Body";
-import Feelings from "./screens/Feelings";
-import Needs from "./screens/Needs";
+import Feelings from "./screens/FeelingsRevamped";
+import Needs from "./screens/NeedsRevamped";
 import AdminSignIn from "./screens/AdminSignIn";
 import AdminDashboard from "./screens/AdminDashboard";
 import setupAdmin from "./scripts/setupAdmin";
@@ -89,7 +89,6 @@ export default function App() {
       <Stack.Screen name="Opinion" component={Opinion} />
       <Stack.Screen name="Body" component={Body} />
       <Stack.Screen name="Feelings" component={Feelings} />
-
       <Stack.Screen name="Needs" component={Needs} />
       <Stack.Screen name="AdminSignIn" component={AdminSignIn} />
       <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
